@@ -91,6 +91,38 @@ export default function ProductsPage() {
     setLoading(true)
     
     try {
+      // TODO: Add Razorpay integration later
+      // For now, redirect to WhatsApp for orders
+
+      // Create order record in database
+      const orderId = `ORDER-${Date.now()}`
+      await addOrder({
+        order_id: orderId,
+        product_name: product.name,
+        quantity: quantity,
+        price: product.price,
+        total: totalPrice,
+        status: 'pending',
+        payment_method: 'WhatsApp',
+      })
+
+      // Create transaction record
+      const transactionId = `TXN-${Date.now()}`
+      await addTransaction({
+        transaction_id: transactionId,
+        order_id: orderId,
+        amount: totalPrice,
+        status: 'pending',
+        payment_method: 'WhatsApp',
+      })
+
+      // Redirect to WhatsApp with order details
+      const message = `Hi! I want to order ${quantity}x ${product.name} (${product.weight} each) for ₹${totalPrice} (₹${product.price} x ${quantity}) from Mrs Bean (mrsbean.in). Order ID: ${orderId}`
+      window.open(`https://wa.me/919876543210?text=${encodeURIComponent(message)}`, '_blank')
+      setLoading(false)
+
+      // TODO: Uncomment below when Razorpay is integrated
+      /*
       // Step 1: Create Razorpay order on server
       const createOrderResponse = await fetch('/api/razorpay/create-order', {
         method: 'POST',
@@ -190,9 +222,10 @@ export default function ProductsPage() {
           setLoading(false)
         },
       })
+      */
     } catch (error: any) {
-      console.error('Error initiating payment:', error)
-      alert(error.message || 'Failed to initiate payment. Please try again.')
+      console.error('Error processing order:', error)
+      alert(error.message || 'Failed to process order. Please try again.')
       setLoading(false)
     }
   }

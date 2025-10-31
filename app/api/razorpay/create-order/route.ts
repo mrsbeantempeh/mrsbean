@@ -1,3 +1,5 @@
+// TODO: Uncomment when Razorpay is integrated
+/*
 import { NextRequest, NextResponse } from 'next/server'
 import Razorpay from 'razorpay'
 
@@ -51,4 +53,14 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+*/
 
+// Temporary placeholder - returns error until Razorpay is integrated
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function POST(request: NextRequest) {
+  return NextResponse.json(
+    { error: 'Razorpay integration is temporarily disabled. Please contact support.' },
+    { status: 503 }
+  )
+}
