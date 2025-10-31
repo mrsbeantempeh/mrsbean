@@ -5,6 +5,7 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import GTM from '@/components/GTM'
+import GoogleAnalytics from '@/components/GoogleAnalytics'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -40,6 +41,7 @@ export default function RootLayout({
     <html lang="en-IN">
       <head>
         <GTM />
+        <GoogleAnalytics />
       </head>
       <body className={inter.className}>
         {/* Google Tag Manager (noscript) */}
