@@ -2,13 +2,12 @@
 
 import { motion } from 'framer-motion'
 import { CheckCircle, Truck, Home, Package } from 'lucide-react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { Suspense } from 'react'
 
-export default function ThankYouPage() {
+function ThankYouContent() {
   const searchParams = useSearchParams()
-  const router = useRouter()
   const orderId = searchParams.get('order') || ''
   const paymentId = searchParams.get('payment') || ''
   const amount = searchParams.get('amount') || '0'
@@ -136,6 +135,21 @@ export default function ThankYouPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ThankYouPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-beige-50 pt-16 sm:pt-20 md:pt-24 pb-12 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-navy-700 mb-4"></div>
+          <p className="text-navy-700">Loading...</p>
+        </div>
+      </div>
+    }>
+      <ThankYouContent />
+    </Suspense>
   )
 }
 
