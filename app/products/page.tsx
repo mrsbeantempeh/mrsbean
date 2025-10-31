@@ -69,7 +69,7 @@ const trustElements = [
 
 export default function ProductsPage() {
   const router = useRouter()
-  const { user, addOrder, addTransaction } = useAuth()
+  const { user, profile, addOrder, addTransaction } = useAuth()
   const [loading, setLoading] = useState(false)
   const [quantity, setQuantity] = useState(1)
 
