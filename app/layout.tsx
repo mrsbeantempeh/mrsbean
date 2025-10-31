@@ -4,6 +4,7 @@ import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import GTM from '@/components/GTM'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -37,7 +38,21 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en-IN">
+      <head>
+        <GTM />
+      </head>
       <body className={inter.className}>
+        {/* Google Tag Manager (noscript) */}
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-K53J97H4"
+            height="0"
+            width="0"
+            style={{ display: 'none', visibility: 'hidden' }}
+          />
+        </noscript>
+        {/* End Google Tag Manager (noscript) */}
+        
         <AuthProvider>
           <Header />
           <main className="min-h-screen">
