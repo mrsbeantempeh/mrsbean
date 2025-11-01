@@ -30,6 +30,16 @@ export default function Footer() {
               <li><a href="#why-tempeh" className="text-white/80 hover:text-white transition-colors text-sm sm:text-base">Why Tempeh?</a></li>
               <li><Link href="/products" className="text-white/80 hover:text-white transition-colors text-sm sm:text-base">Product</Link></li>
               <li><a href="#faq" className="text-white/80 hover:text-white transition-colors text-sm sm:text-base">FAQ</a></li>
+              <li><Link href="/contact" className="text-white/80 hover:text-white transition-colors text-sm sm:text-base">Contact Us</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="font-semibold text-white mb-4 sm:mb-6 text-base sm:text-lg">Legal</h4>
+            <ul className="space-y-2 sm:space-y-3">
+              <li><Link href="/cancellation-refunds" className="text-white/80 hover:text-white transition-colors text-sm sm:text-base">Cancellation & Refunds</Link></li>
+              <li><Link href="/terms" className="text-white/80 hover:text-white transition-colors text-sm sm:text-base">Terms and Conditions</Link></li>
+              <li><Link href="/shipping" className="text-white/80 hover:text-white transition-colors text-sm sm:text-base">Shipping</Link></li>
+              <li><Link href="/privacy" className="text-white/80 hover:text-white transition-colors text-sm sm:text-base">Privacy</Link></li>
             </ul>
           </div>
           <div>
@@ -37,7 +47,7 @@ export default function Footer() {
             <ul className="space-y-2 sm:space-y-3">
               <li className="flex items-center gap-2 sm:gap-3 text-white/80">
                 <Mail className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                <a href="mailto:hello@mrsbean.in" className="hover:text-white transition-colors text-sm sm:text-base">hello@mrsbean.in</a>
+                <a href="mailto:mrsbeantempeh@gmail.com" className="hover:text-white transition-colors text-sm sm:text-base">mrsbeantempeh@gmail.com</a>
               </li>
               <li className="flex items-center gap-2 sm:gap-3 text-white/80">
                 <Phone className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
