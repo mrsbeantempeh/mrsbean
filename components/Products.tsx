@@ -2,9 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { IndianRupee } from 'lucide-react'
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
 
 const product = {
   id: 1,
@@ -18,51 +16,10 @@ const product = {
 
 export default function Products() {
   const router = useRouter()
-  const { user, addOrder, addTransaction } = useAuth()
-  const [loading, setLoading] = useState(false)
 
-  const handleBuyNow = async () => {
-    // Check if user is logged in
-    if (!user) {
-      router.push('/login')
-      return
-    }
-
-    setLoading(true)
-    
-    try {
-      // Generate order ID
-      const orderId = `ORDER-${Date.now()}`
-      const transactionId = `TXN-${Date.now()}`
-
-      // Create order
-      await addOrder({
-        order_id: orderId,
-        product_name: product.name,
-        quantity: 1,
-        price: product.price,
-        total: product.price,
-        status: 'pending',
-        payment_method: 'WhatsApp',
-      })
-
-      // Create transaction
-      await addTransaction({
-        transaction_id: transactionId,
-        order_id: orderId,
-        amount: product.price,
-        status: 'pending',
-        payment_method: 'WhatsApp',
-      })
-
-      // Redirect to WhatsApp with order details
-      const message = `Hi! I want to order ${product.name} (${product.weight}) for ₹${product.price} from Mrs Bean (mrsbean.in). Order ID: ${orderId}`
-      window.open(`https://wa.me/917558534933?text=${encodeURIComponent(message)}`, '_blank')
-    } catch (error) {
-      console.error('Error creating order:', error)
-    } finally {
-      setLoading(false)
-    }
+  const handleBuyNow = () => {
+    // Redirect to products page for checkout (works for both logged-in and guest users)
+    router.push('/products')
   }
 
   return (
@@ -81,11 +38,6 @@ export default function Products() {
           <p className="text-base sm:text-lg md:text-xl text-navy-700 max-w-2xl mx-auto leading-relaxed px-2">
             Fresh, handcrafted tempeh delivered to your doorstep in 24 hours (Pune only)
           </p>
-          {!user && (
-            <p className="text-sm text-navy-600 mt-2">
-              Please <a href="/login" className="font-semibold text-navy-900 underline">sign in</a> to order
-            </p>
-          )}
         </motion.div>
 
         <div className="flex justify-center">
@@ -152,20 +104,10 @@ export default function Products() {
                   
                   <button
                     onClick={handleBuyNow}
-                    disabled={loading}
-                    className="w-full bg-gradient-to-r from-navy-700 to-navy-900 hover:from-navy-600 hover:to-navy-800 text-white px-6 sm:px-8 py-4 sm:py-5 rounded-full font-bold text-base sm:text-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 shadow-xl hover:shadow-2xl hover:scale-105"
+                    className="w-full bg-gradient-to-r from-navy-700 to-navy-900 hover:from-navy-600 hover:to-navy-800 text-white px-6 sm:px-8 py-4 sm:py-5 rounded-full font-bold text-base sm:text-lg transition-all duration-300 flex items-center justify-center gap-2 shadow-xl hover:shadow-2xl hover:scale-105"
                   >
-                    {loading ? (
-                      <>
-                        <span className="animate-spin">⏳</span>
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        Buy Now
-                        <span className="text-lg sm:text-xl">→</span>
-                      </>
-                    )}
+                    Buy Now
+                    <span className="text-lg sm:text-xl">→</span>
                   </button>
                 </div>
               </div>

@@ -31,6 +31,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://mrsbean.in',
   },
+  other: {
+    'facebook-domain-verification': '4ienf5inpeqngh99o24of2tdsvuqm9',
+  },
 }
 
 export default function RootLayout({
@@ -41,6 +44,8 @@ export default function RootLayout({
   return (
     <html lang="en-IN">
       <head>
+        {/* Facebook Domain Verification */}
+        <meta name="facebook-domain-verification" content="4ienf5inpeqngh99o24of2tdsvuqm9" />
         {/* Google Tag Manager - inline script in head as required */}
         <script
           dangerouslySetInnerHTML={{

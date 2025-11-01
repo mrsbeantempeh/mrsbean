@@ -15,7 +15,7 @@ interface Profile {
 
 interface Order {
   id: string
-  user_id: string
+  user_id: string | null
   order_id: string
   product_name: string
   quantity: number
@@ -25,17 +25,22 @@ interface Order {
   created_at: string
   payment_method: string
   address?: string
+  guest_name?: string
+  guest_email?: string
+  guest_phone?: string
 }
 
 interface Transaction {
   id: string
-  user_id: string
+  user_id: string | null
   transaction_id: string
   order_id: string
   amount: number
   status: 'success' | 'pending' | 'failed'
   created_at: string
   payment_method: string
+  guest_email?: string
+  guest_phone?: string
 }
 
 interface AuthContextType {
@@ -51,6 +56,8 @@ interface AuthContextType {
   changeEmail: (newEmail: string) => Promise<{ success: boolean; error?: string }>
   addOrder: (order: Omit<Order, 'id' | 'user_id' | 'created_at'>) => Promise<void>
   addTransaction: (transaction: Omit<Transaction, 'id' | 'user_id' | 'created_at'>) => Promise<void>
+  addGuestOrder: (order: Omit<Order, 'id' | 'created_at'> & { user_id?: null }) => Promise<{ success: boolean; error?: string }>
+  addGuestTransaction: (transaction: Omit<Transaction, 'id' | 'created_at'> & { user_id?: null }) => Promise<{ success: boolean; error?: string }>
   isLoading: boolean
 }
 
@@ -416,6 +423,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const addGuestOrder = async (
+    order: Omit<Order, 'id' | 'created_at'> & { user_id?: null }
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .insert({
+          ...order,
+          user_id: null,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error adding guest order:', error)
+        return { success: false, error: error.message }
+      }
+
+      return { success: true }
+    } catch (error: any) {
+      console.error('Error adding guest order:', error)
+      return { success: false, error: error.message || 'Failed to create order' }
+    }
+  }
+
+  const addGuestTransaction = async (
+    transaction: Omit<Transaction, 'id' | 'created_at'> & { user_id?: null }
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          ...transaction,
+          user_id: null,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error adding guest transaction:', error)
+        return { success: false, error: error.message }
+      }
+
+      return { success: true }
+    } catch (error: any) {
+      console.error('Error adding guest transaction:', error)
+      return { success: false, error: error.message || 'Failed to create transaction' }
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -431,6 +488,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         changeEmail,
         addOrder,
         addTransaction,
+        addGuestOrder,
+        addGuestTransaction,
         isLoading,
       }}
     >

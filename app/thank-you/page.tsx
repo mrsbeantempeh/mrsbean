@@ -1,10 +1,30 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { CheckCircle, Truck, Home, Package } from 'lucide-react'
+import { CheckCircle, Truck, Home, Package, User, Phone, Mail, MapPin, Calendar, CreditCard } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Suspense } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+
+interface OrderInfo {
+  orderId: string
+  paymentId: string
+  customerName: string
+  customerPhone: string
+  customerEmail: string | null
+  deliveryAddress: string
+  landmark: string | null
+  deliveryInstructions: string | null
+  productName: string
+  productWeight: string
+  productPrice: number
+  quantity: number
+  totalAmount: number
+  paymentMethod: string
+  orderDate: string
+  estimatedDeliveryDate: string
+  verifyStatus?: string
+}
 
 function ThankYouContent() {
   const searchParams = useSearchParams()
@@ -12,6 +32,61 @@ function ThankYouContent() {
   const paymentId = searchParams.get('payment') || ''
   const amount = searchParams.get('amount') || '0'
   const quantity = searchParams.get('quantity') || '1'
+  
+  const [orderInfo, setOrderInfo] = useState<OrderInfo | null>(null)
+
+  useEffect(() => {
+    // Get order info from sessionStorage
+    if (typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem('orderInfo')
+      if (stored) {
+        try {
+          setOrderInfo(JSON.parse(stored))
+          // Clear sessionStorage after reading
+          sessionStorage.removeItem('orderInfo')
+        } catch (error) {
+          console.error('Error parsing order info:', error)
+        }
+      }
+    }
+  }, [])
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-IN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  // Calculate delivery estimate
+  const getDeliveryDate = () => {
+    if (orderInfo?.estimatedDeliveryDate) {
+      return formatDate(orderInfo.estimatedDeliveryDate)
+    }
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    return formatDate(tomorrow.toISOString())
+  }
+
+  // Use orderInfo if available, otherwise fall back to URL params
+  const displayName = orderInfo?.customerName || 'Customer'
+  const displayPhone = orderInfo?.customerPhone || ''
+  const displayEmail = orderInfo?.customerEmail || ''
+  const displayAddress = orderInfo?.deliveryAddress || ''
+  const displayLandmark = orderInfo?.landmark || ''
+  const displayInstructions = orderInfo?.deliveryInstructions || ''
+  const displayProductName = orderInfo?.productName || 'Classic Tempeh'
+  const displayProductWeight = orderInfo?.productWeight || '200g'
+  const displayProductPrice = orderInfo?.productPrice || 125
+  const displayQuantity = orderInfo?.quantity || parseInt(quantity)
+  const displayAmount = orderInfo?.totalAmount || parseInt(amount)
+  const displayOrderDate = orderInfo?.orderDate ? formatDate(orderInfo.orderDate) : formatDate(new Date().toISOString())
 
   return (
     <div className="min-h-screen bg-beige-50 pt-16 sm:pt-20 md:pt-24 pb-12">
@@ -47,24 +122,85 @@ function ThankYouContent() {
             </h2>
             
             <div className="space-y-4 mb-6">
-              <div className="flex justify-between items-center">
-                <span className="text-navy-700 font-medium">Order ID:</span>
-                <span className="text-navy-900 font-semibold">{orderId}</span>
-              </div>
-              {paymentId && (
+              {/* Order ID & Payment ID */}
+              <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-navy-700 font-medium">Payment ID:</span>
-                  <span className="text-navy-900 font-semibold text-sm sm:text-base">{paymentId.substring(0, 12)}...</span>
+                  <span className="text-navy-700 font-medium">Order ID:</span>
+                  <span className="text-navy-900 font-semibold font-mono text-sm">{orderId}</span>
+                </div>
+                {paymentId && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-navy-700 font-medium">Payment ID:</span>
+                    <span className="text-navy-900 font-semibold font-mono text-xs sm:text-sm">{paymentId.substring(0, 16)}...</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-navy-200 pt-4">
+                <h3 className="text-sm font-bold text-navy-900 mb-3 flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Order Information
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-navy-600">Order Date:</span>
+                    <span className="text-navy-900 font-medium">{displayOrderDate}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-navy-600">Product:</span>
+                    <span className="text-navy-900 font-medium">{displayProductName} ({displayProductWeight})</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-navy-600">Quantity:</span>
+                    <span className="text-navy-900 font-medium">{displayQuantity} × ₹{displayProductPrice}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-navy-100">
+                    <span className="text-navy-900 font-bold">Total Amount:</span>
+                    <span className="text-navy-900 font-bold text-lg">₹{displayAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2">
+                    <span className="text-navy-600 flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5" />
+                      Payment Method:
+                    </span>
+                    <span className="text-navy-900 font-medium">{orderInfo?.paymentMethod || 'Razorpay'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Information */}
+              {(displayName || displayPhone || displayEmail) && (
+                <div className="border-t border-navy-200 pt-4">
+                  <h3 className="text-sm font-bold text-navy-900 mb-3 flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Customer Information
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    {displayName && (
+                      <div className="flex items-start gap-2">
+                        <User className="w-4 h-4 text-navy-400 mt-0.5 flex-shrink-0" />
+                        <span className="text-navy-900 font-medium">{displayName}</span>
+                      </div>
+                    )}
+                    {displayPhone && (
+                      <div className="flex items-start gap-2">
+                        <Phone className="w-4 h-4 text-navy-400 mt-0.5 flex-shrink-0" />
+                        <a href={`tel:${displayPhone}`} className="text-navy-900 font-medium hover:text-navy-700">
+                          {displayPhone}
+                        </a>
+                      </div>
+                    )}
+                    {displayEmail && (
+                      <div className="flex items-start gap-2">
+                        <Mail className="w-4 h-4 text-navy-400 mt-0.5 flex-shrink-0" />
+                        <a href={`mailto:${displayEmail}`} className="text-navy-900 font-medium hover:text-navy-700 break-all">
+                          {displayEmail}
+                        </a>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
-              <div className="flex justify-between items-center">
-                <span className="text-navy-700 font-medium">Quantity:</span>
-                <span className="text-navy-900 font-semibold">{quantity} x 200g</span>
-              </div>
-              <div className="flex justify-between items-center pt-4 border-t border-navy-200">
-                <span className="text-navy-900 font-bold text-lg">Total Amount:</span>
-                <span className="text-navy-900 font-bold text-xl">₹{parseInt(amount).toLocaleString('en-IN')}</span>
-              </div>
             </div>
           </motion.div>
 
@@ -81,16 +217,46 @@ function ThankYouContent() {
                   <Truck className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                 </div>
               </div>
-              <div>
-                <h3 className="text-lg sm:text-xl font-bold text-navy-900 mb-2">
+              <div className="flex-1">
+                <h3 className="text-lg sm:text-xl font-bold text-navy-900 mb-3 flex items-center gap-2">
+                  <MapPin className="w-5 h-5" />
                   Delivery Information
                 </h3>
-                <p className="text-base sm:text-lg text-navy-700 mb-3 leading-relaxed">
-                  Your fresh tempeh will be delivered to your doorstep within <strong className="text-navy-900">24 hours</strong>.
-                </p>
-                <p className="text-sm sm:text-base text-navy-600">
-                  Currently delivering only in Pune. You will receive a confirmation call/SMS shortly with delivery details.
-                </p>
+                
+                {displayAddress && (
+                  <div className="mb-4">
+                    <p className="text-sm font-semibold text-navy-700 mb-1">Delivery Address:</p>
+                    <p className="text-base text-navy-900 leading-relaxed whitespace-pre-line">
+                      {displayAddress}
+                      {displayLandmark && (
+                        <>
+                          {'\n'}
+                          <span className="text-sm text-navy-600">Landmark: {displayLandmark}</span>
+                        </>
+                      )}
+                    </p>
+                    {displayInstructions && (
+                      <p className="text-sm text-navy-600 mt-2 italic">
+                        Instructions: {displayInstructions}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="bg-white/60 rounded-lg p-3 mb-3">
+                  <p className="text-sm font-semibold text-navy-900 mb-1 flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Estimated Delivery Date
+                  </p>
+                  <p className="text-base text-navy-700 font-medium">
+                    {getDeliveryDate()}
+                  </p>
+                </div>
+
+                <div className="space-y-1 text-sm text-navy-700">
+                  <p className="font-semibold">📦 Your fresh tempeh will be delivered within <strong className="text-navy-900">24 hours</strong></p>
+                  <p>Currently delivering only in Pune. You will receive a confirmation call/SMS shortly with delivery details.</p>
+                </div>
               </div>
             </div>
           </motion.div>
