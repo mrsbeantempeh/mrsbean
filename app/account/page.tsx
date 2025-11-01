@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { useAuth } from '@/contexts/AuthContext'
 import { motion } from 'framer-motion'
@@ -29,7 +29,7 @@ export default function AccountPage() {
 }
 
 function AccountDashboard() {
-  const { user, profile, orders, transactions, logout, updateProfile, changePassword, changeEmail } = useAuth()
+  const { user, profile, orders, transactions, logout, updateProfile, changePassword, changeEmail, isLoading: authLoading } = useAuth()
   const [activeTab, setActiveTab] = useState<'profile' | 'orders' | 'transactions' | 'settings'>('profile')
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -37,8 +37,8 @@ function AccountDashboard() {
   const [isChangingEmail, setIsChangingEmail] = useState(false)
   
   const [profileData, setProfileData] = useState({
-    name: profile?.name || '',
-    phone: profile?.phone || '',
+    name: '',
+    phone: '',
   })
   
   const [passwordData, setPasswordData] = useState({
@@ -53,6 +53,16 @@ function AccountDashboard() {
   
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
+
+  // Sync profile data when profile loads
+  useEffect(() => {
+    if (profile) {
+      setProfileData({
+        name: profile.name || '',
+        phone: profile.phone || '',
+      })
+    }
+  }, [profile])
 
   const handleUpdateProfile = async () => {
     setErrors({})
@@ -127,11 +137,28 @@ function AccountDashboard() {
     }
   }
 
+  // Show loading state while auth is loading
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen bg-beige-50 pt-16 sm:pt-20 md:pt-24 pb-8 sm:pb-12 md:pb-16 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-navy-700 mb-4"></div>
+          <p className="text-navy-700">Loading account...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-beige-50 pt-16 sm:pt-20 md:pt-24 pb-8 sm:pb-12 md:pb-16">
       <div className="container mx-auto px-4 sm:px-6">
         {/* Header */}
-        <div className="mb-8">
+        <motion.div
+          className="mb-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
           <Link href="/" className="inline-block mb-6">
             <div className="relative w-32 h-12">
               <Image
@@ -145,7 +172,7 @@ function AccountDashboard() {
           </Link>
           <h1 className="text-3xl sm:text-4xl font-bold text-navy-900 mb-2">My Account</h1>
           <p className="text-navy-700">Manage your profile, orders, and settings</p>
-        </div>
+        </motion.div>
 
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Sidebar */}
