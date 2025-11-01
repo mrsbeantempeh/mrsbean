@@ -220,8 +220,53 @@ export default function ProductsPage() {
     }
   }
 
+  // Generate JSON-LD microdata for Facebook/Meta catalog
+  const productMicrodata = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "productID": `mrsbean_classic_tempeh_001`,
+    "name": product.name,
+    "description": product.description,
+    "url": "https://mrsbean.in/products",
+    "image": product.image,
+    "brand": {
+      "@type": "Brand",
+      "name": "Mrs Bean"
+    },
+    "offers": [
+      {
+        "@type": "Offer",
+        "price": product.price.toString(),
+        "priceCurrency": "INR",
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock",
+        "priceValidUntil": new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 1 year from now
+      }
+    ],
+    "additionalProperty": [
+      {
+        "@type": "PropertyValue",
+        "propertyID": "item_group_id",
+        "value": "mrsbean_tempeh"
+      },
+      {
+        "@type": "PropertyValue",
+        "propertyID": "weight",
+        "value": product.weight
+      }
+    ]
+  }
+
   return (
     <div className="min-h-screen bg-beige-50 pt-16 sm:pt-20 md:pt-24 pb-8 sm:pb-12">
+      {/* JSON-LD Microdata for Facebook/Meta Catalog */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(productMicrodata),
+        }}
+      />
+      
       <div className="container mx-auto px-4 sm:px-6">
         {/* Header */}
         <motion.div

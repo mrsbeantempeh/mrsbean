@@ -12,7 +12,7 @@ export default function Footer() {
           <div>
             <div className="relative w-40 h-16 sm:w-48 sm:h-20 md:w-52 md:h-22 mb-4 sm:mb-6">
               <Image
-                src="/mrsbeanlogo.jpeg"
+                src="/mrsbeanlogo.png"
                 alt="Mrs Bean Logo"
                 fill
                 className="object-contain object-left"

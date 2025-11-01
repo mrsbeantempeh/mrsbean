@@ -63,7 +63,7 @@ export default function LoginPage() {
             <Link href="/" className="inline-block">
               <div className="relative w-40 h-16 mx-auto mb-6">
                 <Image
-                  src="/mrsbeanlogo.jpeg"
+                      src="/mrsbeanlogo.png"
                   alt="Mrs Bean Logo"
                   fill
                   className="object-contain"

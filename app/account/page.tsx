@@ -162,7 +162,7 @@ function AccountDashboard() {
           <Link href="/" className="inline-block mb-6">
             <div className="relative w-32 h-12">
               <Image
-                src="/mrsbeanlogo.jpeg"
+                src="/mrsbeanlogo.png"
                 alt="Mrs Bean Logo"
                 fill
                 className="object-contain"

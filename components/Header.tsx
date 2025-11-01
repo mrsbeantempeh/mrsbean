@@ -80,7 +80,7 @@ export default function Header() {
               >
                 <div className="relative w-24 h-8 sm:w-32 sm:h-10 md:w-40 md:h-12 lg:w-44 lg:h-14 flex items-center">
                   <Image
-                    src="/mrsbeanlogo.jpeg"
+                      src="/mrsbeanlogo.png"
                     alt="Mrs Bean Logo"
                     fill
                     className="object-contain"
