@@ -318,7 +318,7 @@ function AccountDashboard() {
                         value={profileData.phone}
                         onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
                         className="w-full px-4 py-3 border border-navy-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-700"
-                        placeholder="+91 98765 43210"
+                        placeholder="+91 75585 34933"
                       />
                     ) : (
                       <div className="px-4 py-3 bg-beige-50 rounded-lg text-navy-900 flex items-center gap-2">

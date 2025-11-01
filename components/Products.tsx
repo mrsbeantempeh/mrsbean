@@ -57,7 +57,7 @@ export default function Products() {
 
       // Redirect to WhatsApp with order details
       const message = `Hi! I want to order ${product.name} (${product.weight}) for ₹${product.price} from Mrs Bean (mrsbean.in). Order ID: ${orderId}`
-      window.open(`https://wa.me/919876543210?text=${encodeURIComponent(message)}`, '_blank')
+      window.open(`https://wa.me/917558534933?text=${encodeURIComponent(message)}`, '_blank')
     } catch (error) {
       console.error('Error creating order:', error)
     } finally {

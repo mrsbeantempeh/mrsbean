@@ -51,7 +51,7 @@ export default function Footer() {
               </li>
               <li className="flex items-center gap-2 sm:gap-3 text-white/80">
                 <Phone className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                <a href="tel:+919876543210" className="hover:text-white transition-colors text-sm sm:text-base">+91 98765 43210</a>
+                <a href="tel:+917558534933" className="hover:text-white transition-colors text-sm sm:text-base">+91 75585 34933</a>
               </li>
             </ul>
           </div>
@@ -68,7 +68,7 @@ export default function Footer() {
                 <Instagram className="w-5 h-5" />
               </a>
               <a
-                href="https://wa.me/919876543210?text=Hi! I'm interested in buying fresh tempeh from Mrs Bean."
+                href="https://wa.me/917558534933?text=Hi! I'm interested in buying fresh tempeh from Mrs Bean."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-navy-800 hover:bg-navy-700 p-3 sm:p-4 rounded-full transition-colors shadow-md hover:shadow-lg"

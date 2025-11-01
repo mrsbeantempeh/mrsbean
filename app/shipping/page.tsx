@@ -141,7 +141,7 @@ export default function ShippingPage() {
                 <li>• Provide accurate and complete delivery address</li>
                 <li>• Include landmark or directions if your address is hard to locate</li>
                 <li>• Delivery attempts may be rescheduled if recipient is unavailable</li>
-                <li>• For any delivery queries, contact us at <a href="mailto:mrsbeantempeh@gmail.com" className="text-navy-900 font-semibold underline">mrsbeantempeh@gmail.com</a> or WhatsApp <a href="https://wa.me/919876543210" className="text-navy-900 font-semibold underline">+91 98765 43210</a></li>
+                <li>• For any delivery queries, contact us at <a href="mailto:mrsbeantempeh@gmail.com" className="text-navy-900 font-semibold underline">mrsbeantempeh@gmail.com</a> or WhatsApp <a href="https://wa.me/917558534933" className="text-navy-900 font-semibold underline">+91 75585 34933</a></li>
               </ul>
             </section>
           </motion.div>

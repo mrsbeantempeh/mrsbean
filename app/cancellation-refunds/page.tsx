@@ -97,7 +97,7 @@ export default function CancellationRefundsPage() {
                   <div>
                     <h3 className="font-semibold text-navy-900 mb-1">Contact Us</h3>
                     <p className="text-navy-700 text-sm sm:text-base">
-                      Reach out to us via WhatsApp at <a href="https://wa.me/919876543210" className="text-navy-900 font-semibold underline">+91 98765 43210</a> or email at <a href="mailto:mrsbeantempeh@gmail.com" className="text-navy-900 font-semibold underline">mrsbeantempeh@gmail.com</a>
+                      Reach out to us via WhatsApp at <a href="https://wa.me/917558534933" className="text-navy-900 font-semibold underline">+91 75585 34933</a> or email at <a href="mailto:mrsbeantempeh@gmail.com" className="text-navy-900 font-semibold underline">mrsbeantempeh@gmail.com</a>
                     </p>
                   </div>
                 </div>

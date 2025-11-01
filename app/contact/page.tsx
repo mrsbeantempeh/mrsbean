@@ -55,7 +55,7 @@ export default function ContactPage() {
             </motion.a>
 
             <motion.a
-              href="https://wa.me/919876543210"
+              href="https://wa.me/917558534933"
               target="_blank"
               rel="noopener noreferrer"
               className="bg-white rounded-2xl shadow-lg border border-navy-100 p-6 sm:p-8 hover:shadow-xl transition-all duration-300 group"
@@ -71,7 +71,7 @@ export default function ContactPage() {
                 Chat with us on WhatsApp for quick assistance
               </p>
               <p className="text-navy-900 font-semibold text-base sm:text-lg">
-                +91 98765 43210
+                +91 75585 34933
               </p>
             </motion.a>
           </div>

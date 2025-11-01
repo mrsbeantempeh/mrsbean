@@ -196,8 +196,8 @@ export default function PrivacyPage() {
                   mrsbeantempeh@gmail.com
                 </a>
                 <p className="text-base sm:text-lg text-navy-900 font-semibold mt-4">WhatsApp:</p>
-                <a href="https://wa.me/919876543210" className="text-navy-700 hover:text-navy-900 underline">
-                  +91 98765 43210
+                <a href="https://wa.me/917558534933" className="text-navy-700 hover:text-navy-900 underline">
+                  +91 75585 34933
                 </a>
               </div>
             </section>
