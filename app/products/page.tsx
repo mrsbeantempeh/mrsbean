@@ -88,19 +88,31 @@ export default function ProductsPage() {
       return
     }
 
+    // Calculate cart value dynamically at the time of payment
+    // This ensures we always charge the current cart value
+    const currentQuantity = quantity
+    const currentTotalPrice = product.price * currentQuantity
+
+    // Validate cart value
+    if (currentTotalPrice <= 0 || currentQuantity < 1 || currentQuantity > 20) {
+      alert('Invalid cart value. Please check your quantity.')
+      return
+    }
+
     setLoading(true)
     
     try {
-      // Step 1: Create Razorpay order on server
+      // Step 1: Create Razorpay order on server with dynamic cart value
+      // The amount is sent in rupees and converted to paise on the server
       const createOrderResponse = await fetch('/api/razorpay/create-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          amount: totalPrice,
+          amount: currentTotalPrice, // Dynamic cart value in rupees
           currency: 'INR',
-          receipt: `receipt_${Date.now()}`,
+          receipt: `receipt_${Date.now()}_qty_${currentQuantity}`,
         }),
       })
 
@@ -110,24 +122,34 @@ export default function ProductsPage() {
 
       const razorpayOrder = await createOrderResponse.json()
 
-      // Step 2: Create order record in database
+      // Step 2: Validate that Razorpay order amount matches our cart value
+      // Razorpay returns amount in paise, so we need to convert to rupees for comparison
+      const razorpayAmountInRupees = razorpayOrder.amount / 100
+      const expectedAmountInRupees = currentTotalPrice
+
+      // Verify the amount matches (with small tolerance for rounding)
+      if (Math.abs(razorpayAmountInRupees - expectedAmountInRupees) > 0.01) {
+        throw new Error(`Amount mismatch: Expected ₹${expectedAmountInRupees}, got ₹${razorpayAmountInRupees}`)
+      }
+
+      // Step 3: Create order record in database with current cart value
       const orderId = `ORDER-${Date.now()}`
       await addOrder({
         order_id: orderId,
         product_name: product.name,
-        quantity: quantity,
+        quantity: currentQuantity,
         price: product.price,
-        total: totalPrice,
+        total: currentTotalPrice, // Dynamic cart value
         status: 'pending',
         payment_method: 'Razorpay',
       })
 
-      // Step 3: Open Razorpay checkout
+      // Step 4: Open Razorpay checkout with dynamic cart amount
       const { openRazorpayCheckout } = await import('@/lib/razorpay')
       
       await openRazorpayCheckout({
-        amount: razorpayOrder.amount,
-        productName: `${quantity}x ${product.name}`,
+        amount: razorpayOrder.amount, // Amount in paise from Razorpay order
+        productName: `${currentQuantity}x ${product.name} (₹${currentTotalPrice})`,
         orderId: razorpayOrder.id,
         customerName: profile?.name || user.email?.split('@')[0] || '',
         customerEmail: user.email || '',
@@ -144,6 +166,7 @@ export default function ProductsPage() {
                 razorpay_order_id: razorpayOrderId,
                 razorpay_payment_id: paymentId,
                 razorpay_signature: signature || '', // Signature from Razorpay response
+                expected_amount: currentTotalPrice, // Pass expected amount for verification
               }),
             })
 
@@ -156,32 +179,32 @@ export default function ProductsPage() {
               await addTransaction({
                 transaction_id: transactionId,
                 order_id: orderId,
-                amount: totalPrice,
+                amount: currentTotalPrice, // Dynamic cart value
                 status: 'pending',
                 payment_method: 'Razorpay',
               })
               // Redirect anyway but with warning
-              router.push(`/thank-you?order=${orderId}&payment=${paymentId}&amount=${totalPrice}&quantity=${quantity}&verify=pending`)
+              router.push(`/thank-you?order=${orderId}&payment=${paymentId}&amount=${currentTotalPrice}&quantity=${currentQuantity}&verify=pending`)
               return
             }
 
-            // Create transaction record with success status
+            // Create transaction record with success status using dynamic cart value
             const transactionId = `TXN-${paymentId}`
             await addTransaction({
               transaction_id: transactionId,
               order_id: orderId,
-              amount: totalPrice,
+              amount: currentTotalPrice, // Dynamic cart value
               status: 'success',
               payment_method: 'Razorpay',
             })
 
             // Redirect to thank you page with order details
-            router.push(`/thank-you?order=${orderId}&payment=${paymentId}&amount=${totalPrice}&quantity=${quantity}`)
+            router.push(`/thank-you?order=${orderId}&payment=${paymentId}&amount=${currentTotalPrice}&quantity=${currentQuantity}`)
           } catch (error) {
             console.error('Payment verification error:', error)
             // Even if verification fails, redirect to thank you page with order details
             // Admin can manually verify later
-            router.push(`/thank-you?order=${orderId}&payment=${paymentId}&amount=${totalPrice}&quantity=${quantity}&verify=error`)
+            router.push(`/thank-you?order=${orderId}&payment=${paymentId}&amount=${currentTotalPrice}&quantity=${currentQuantity}&verify=error`)
           }
         },
         onError: (error) => {

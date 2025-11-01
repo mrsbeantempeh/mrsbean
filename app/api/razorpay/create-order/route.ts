@@ -22,15 +22,28 @@ export async function POST(request: NextRequest) {
 
     const { amount, currency = 'INR', receipt } = await request.json()
 
+    // Validate dynamic cart value
     if (!amount || amount <= 0) {
       return NextResponse.json(
-        { error: 'Invalid amount' },
+        { error: 'Invalid cart amount. Amount must be greater than 0.' },
+        { status: 400 }
+      )
+    }
+
+    // Convert dynamic cart value from rupees to paise for Razorpay
+    // Razorpay requires amount in the smallest currency unit (paise for INR)
+    const amountInPaise = Math.round(amount * 100)
+
+    // Ensure minimum amount (Razorpay minimum is 1 rupee = 100 paise)
+    if (amountInPaise < 100) {
+      return NextResponse.json(
+        { error: 'Minimum order amount is ₹1' },
         { status: 400 }
       )
     }
 
     const options = {
-      amount: Math.round(amount * 100), // Convert to paise
+      amount: amountInPaise, // Dynamic cart value in paise
       currency,
       receipt: receipt || `receipt_${Date.now()}`,
     }
