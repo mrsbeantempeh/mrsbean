@@ -174,9 +174,10 @@ export default function Header() {
                   <>
                     <Link
                       href="/login"
-                      className="font-semibold text-navy-700 hover:text-navy-600 transition-colors text-xs xl:text-sm whitespace-nowrap"
+                      className="flex items-center justify-center p-2 sm:p-2.5 rounded-full border border-navy-200 hover:border-navy-400 hover:bg-navy-50 transition-all duration-300 flex-shrink-0"
+                      aria-label="Sign In"
                     >
-                      Sign In
+                      <User className="w-4 h-4 sm:w-5 sm:h-5 text-navy-700" />
                     </Link>
                     <Link href="/products" className="flex-shrink-0">
                       <motion.div
@@ -320,8 +321,9 @@ export default function Header() {
                 <Link
                   href="/login"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="block font-semibold text-navy-700 hover:text-navy-600 transition-colors py-2 sm:py-2.5 md:py-3 border-b border-navy-100 text-sm sm:text-base"
+                  className="flex items-center justify-center gap-2 font-semibold text-navy-700 hover:text-navy-600 transition-colors py-2 sm:py-2.5 md:py-3 border-b border-navy-100 text-sm sm:text-base"
                 >
+                  <User className="w-4 h-4 sm:w-5 sm:h-5" />
                   Sign In
                 </Link>
                 <Link

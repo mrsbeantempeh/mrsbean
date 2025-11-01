@@ -11,13 +11,13 @@ export default function Hero() {
           {/* Left Part - Text Content */}
           <motion.div
             className="order-2 lg:order-1"
-            initial={{ opacity: 0, x: -30 }}
+            initial={false}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
           >
             {/* Premium Badge */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
               className="mb-4 sm:mb-5"
@@ -31,7 +31,7 @@ export default function Hero() {
             {/* Main Headline */}
             <motion.h1
               className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-3 sm:mb-4 text-navy-900 leading-tight"
-              initial={{ opacity: 0, y: 30 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4, duration: 1, ease: "easeOut" }}
             >
@@ -45,7 +45,7 @@ export default function Hero() {
             {/* Subtitle */}
             <motion.p
               className="text-sm sm:text-base md:text-lg text-navy-700 mb-4 sm:mb-5 md:mb-6 leading-relaxed max-w-xl"
-              initial={{ opacity: 0, y: 20 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6, duration: 0.8 }}
             >
@@ -55,7 +55,7 @@ export default function Hero() {
             {/* CTAs */}
             <motion.div
               className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 mb-5 sm:mb-6 md:mb-7"
-              initial={{ opacity: 0, y: 20 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8, duration: 0.8 }}
             >
@@ -90,7 +90,7 @@ export default function Hero() {
             {/* Trust Badges - Compact Design */}
             <motion.div
               className="grid grid-cols-3 gap-2.5 sm:gap-3 mb-5 sm:mb-6"
-              initial={{ opacity: 0, y: 20 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1, duration: 0.8 }}
             >
@@ -105,7 +105,7 @@ export default function Hero() {
                     key={index}
                     className="bg-beige-50 border border-navy-100 rounded-lg p-2.5 sm:p-3 hover:bg-beige-100 transition-all duration-300 group text-center"
                     whileHover={{ scale: 1.05, y: -2 }}
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={false}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 1.2 + index * 0.1 }}
                   >
@@ -126,7 +126,7 @@ export default function Hero() {
             {/* Stats - Clean Design */}
             <motion.div
               className="flex flex-wrap gap-4 sm:gap-6 md:gap-8 pt-3 sm:pt-4 border-t border-navy-200"
-              initial={{ opacity: 0 }}
+              initial={false}
               animate={{ opacity: 1 }}
               transition={{ delay: 1.4, duration: 0.8 }}
             >
@@ -148,7 +148,7 @@ export default function Hero() {
           {/* Right Part - Tempeh Image */}
           <motion.div
             className="relative h-[280px] sm:h-[350px] md:h-[400px] lg:h-[450px] xl:h-[500px] rounded-xl sm:rounded-2xl overflow-hidden shadow-xl order-1 lg:order-2"
-            initial={{ opacity: 0, x: 30 }}
+            initial={false}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.3 }}
           >
