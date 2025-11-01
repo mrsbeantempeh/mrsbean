@@ -67,26 +67,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Load user session and data on mount
   useEffect(() => {
+    let isMounted = true
+
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        loadProfile(session.user.id)
-        loadOrders(session.user.id)
-        loadTransactions(session.user.id)
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Error getting session:', error)
+        if (isMounted) {
+          setIsLoading(false)
+        }
+        return
       }
-      setIsLoading(false)
+
+      if (isMounted) {
+        setUser(session?.user ?? null)
+        if (session?.user) {
+          loadProfile(session.user.id).catch(err => console.error('Error loading profile:', err))
+          loadOrders(session.user.id).catch(err => console.error('Error loading orders:', err))
+          loadTransactions(session.user.id).catch(err => console.error('Error loading transactions:', err))
+        }
+        setIsLoading(false)
+      }
+    }).catch(error => {
+      console.error('Error in getSession:', error)
+      if (isMounted) {
+        setIsLoading(false)
+      }
     })
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return
+      
       setUser(session?.user ?? null)
       if (session?.user) {
-        await loadProfile(session.user.id)
-        await loadOrders(session.user.id)
-        await loadTransactions(session.user.id)
+        try {
+          await Promise.all([
+            loadProfile(session.user.id),
+            loadOrders(session.user.id),
+            loadTransactions(session.user.id),
+          ])
+        } catch (error) {
+          console.error('Error loading user data:', error)
+        }
       } else {
         setProfile(null)
         setOrders([])
@@ -95,7 +120,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const loadProfile = async (userId: string) => {
