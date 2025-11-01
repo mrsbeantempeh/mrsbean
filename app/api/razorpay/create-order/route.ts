@@ -8,9 +8,16 @@ export async function POST(request: NextRequest) {
     const keySecret = process.env.RAZORPAY_KEY_SECRET
 
     if (!keyId || !keySecret) {
+      console.error('Razorpay environment variables missing:', {
+        hasKeyId: !!keyId,
+        hasKeySecret: !!keySecret,
+      })
       return NextResponse.json(
-        { error: 'Razorpay keys not configured. Please set NEXT_PUBLIC_RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your environment variables.' },
-        { status: 500 }
+        { 
+          error: 'Razorpay keys not configured. Please set NEXT_PUBLIC_RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your environment variables.',
+          details: 'Missing environment variables'
+        },
+        { status: 503 } // Service Unavailable instead of 500
       )
     }
 
@@ -57,10 +64,18 @@ export async function POST(request: NextRequest) {
       receipt: order.receipt,
     })
   } catch (error: any) {
-    console.error('Razorpay order creation error:', error)
+    console.error('Razorpay order creation error:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      statusCode: error.statusCode,
+    })
     return NextResponse.json(
-      { error: error.message || 'Failed to create order' },
-      { status: 500 }
+      { 
+        error: error.message || 'Failed to create order',
+        details: error.code || 'Unknown error',
+      },
+      { status: error.statusCode || 500 }
     )
   }
 }
