@@ -230,7 +230,7 @@ export default function ProductsPage() {
 
       // Step 3: Create order record in database (pending status)
       const orderId = `ORDER-${Date.now()}`
-      const receiptValue = `receipt_${Date.now()}_qty_${quantity}` // Random receipt value
+      const receiptValue = Date.now() // Random integer receipt value
 
       if (user) {
         await addOrder({
