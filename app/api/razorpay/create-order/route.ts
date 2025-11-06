@@ -233,6 +233,16 @@ export async function POST(request: NextRequest) {
       options.notes = notes
     }
 
+    // CRITICAL: Log the exact payload being sent to Razorpay
+    // This must include line_items_total and line_items for Magic Checkout to work
+    console.log('📦 Creating Razorpay Order with Magic Checkout:', JSON.stringify({
+      amount: options.amount,
+      currency: options.currency,
+      receipt: options.receipt,
+      line_items_total: options.line_items_total,
+      line_items: options.line_items,
+    }, null, 2))
+
     // Log the order options for debugging (without sensitive data)
     console.log('Creating Razorpay order:', {
       amount: amountInPaise,
@@ -251,23 +261,6 @@ export async function POST(request: NextRequest) {
         description: lineItems[0].description,
       } : null,
     })
-
-    // Log full order options (for debugging - remove sensitive data in production)
-    console.log('Full order options (sanitized):', JSON.stringify({
-      ...options,
-      line_items: lineItems.map(item => ({
-        sku: item.sku,
-        variant_id: item.variant_id,
-        price: item.price,
-        offer_price: item.offer_price,
-        tax_amount: item.tax_amount,
-        quantity: item.quantity,
-        name: item.name,
-        description: item.description,
-        weight: item.weight,
-        dimensions: item.dimensions,
-      })),
-    }, null, 2))
 
     const order = await razorpay.orders.create(options)
 

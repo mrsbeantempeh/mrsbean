@@ -51,15 +51,12 @@ export const runtime = 'edge'
 export const maxDuration = 10
 
 export async function POST(request: NextRequest) {
-  // CORS headers
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Max-Age': '86400', // 24 hours
   }
 
-  // Default response - always return this if anything goes wrong
   const defaultResponse = {
     addresses: [
       {
@@ -72,104 +69,45 @@ export async function POST(request: NextRequest) {
             name: 'Standard Delivery',
             description: 'Delivered in 3-5 business days',
             serviceable: true,
-            shipping_fee: 5000, // in paise (5000 = ₹50)
+            shipping_fee: 5000,
             cod: true,
-            cod_fee: 2000, // in paise (2000 = ₹20)
+            cod_fee: 2000,
           },
         ],
       },
     ],
   }
 
+  let body: any = {}
   try {
-    // Parse request body
-    const body = await request.json()
-    console.log('Shipping Info API Request:', JSON.stringify(body, null, 2))
-
-    // Extract addresses from request
-    const { addresses, order_id, razorpay_order_id, email, contact } = body || {}
-
-    // Log request details for debugging
-    console.log('Shipping Info API - Request Details:', {
-      order_id,
-      razorpay_order_id,
-      email,
-      contact,
-      addressesCount: addresses?.length || 0,
-    })
-
-    // If addresses are provided, process them
-    if (addresses && Array.isArray(addresses) && addresses.length > 0) {
-      const responseAddresses = addresses.map((address: any) => {
-        // Handle different address formats from Razorpay
-        // id can be number (0) or string ("0") - convert to string
-        const addressId = address?.id !== undefined ? String(address.id) : '0'
-        
-        // zipcode
-        const addressZipcode = address?.zipcode || ''
-        
-        // state_code (optional)
-        const addressStateCode = address?.state_code || ''
-        
-        // country can be lowercase ("in") or uppercase ("IN") - keep as received or default to lowercase
-        const addressCountry = address?.country 
-          ? String(address.country).toLowerCase() 
-          : 'in'
-
-        // Determine serviceability based on country
-        // Service all addresses in India
-        const isServiceable = addressCountry === 'in' || addressCountry === ''
-
-        // Return address with shipping methods
-        // Match exact format from Razorpay documentation
-        return {
-          id: addressId,
-          zipcode: addressZipcode,
-          country: addressCountry.toLowerCase(), // Return lowercase as per user's example
-          shipping_methods: [
-            {
-              id: '1',
-              name: 'Standard Delivery',
-              description: 'Delivered in 3-5 business days',
-              serviceable: isServiceable,
-              shipping_fee: 5000, // in paise (5000 = ₹50)
-              cod: isServiceable, // COD available if serviceable
-              cod_fee: 2000, // in paise (2000 = ₹20)
-            },
-          ],
-        }
-      })
-
-      console.log('Shipping Info API Response:', JSON.stringify({ addresses: responseAddresses }, null, 2))
-      
-      return NextResponse.json(
-        { addresses: responseAddresses },
-        { 
-          status: 200, 
-          headers: corsHeaders 
-        }
-      )
-    }
-
-    // If no addresses provided, return default response
-    console.warn('Shipping Info API: No addresses provided, returning default response')
-    return NextResponse.json(defaultResponse, { 
-      status: 200,
-      headers: corsHeaders 
-    })
-  } catch (error: any) {
-    // Log error but always return a valid response
-    console.error('Shipping Info API Error:', {
-      message: error?.message || 'Unknown error',
-      error: error?.toString() || 'Unknown',
-    })
-    
-    // Always return a valid response to prevent Magic Checkout from getting stuck
-    return NextResponse.json(defaultResponse, { 
-      status: 200,
-      headers: corsHeaders 
-    })
+    const requestText = await request.text()
+    console.log('📦 Incoming Shipping Info Payload:', requestText)
+    body = JSON.parse(requestText)
+  } catch (e) {
+    console.error('❌ JSON parse failed:', e)
+    return NextResponse.json(defaultResponse, { status: 200, headers: corsHeaders })
   }
+
+  const addresses = Array.isArray(body.addresses) ? body.addresses : []
+  const responseAddresses = addresses.map((addr: any) => ({
+    id: String(addr.id ?? '0'),
+    zipcode: addr.zipcode ?? '',
+    country: String(addr.country ?? 'in').toLowerCase(),
+    shipping_methods: [
+      {
+        id: '1',
+        name: 'Standard Delivery',
+        description: 'Delivered in 3-5 business days',
+        serviceable: true,
+        shipping_fee: 5000,
+        cod: true,
+        cod_fee: 2000,
+      },
+    ],
+  }))
+
+  console.log('✅ Shipping Info Response:', JSON.stringify({ addresses: responseAddresses }))
+  return NextResponse.json({ addresses: responseAddresses }, { status: 200, headers: corsHeaders })
 }
 
 // Handle OPTIONS for CORS preflight
