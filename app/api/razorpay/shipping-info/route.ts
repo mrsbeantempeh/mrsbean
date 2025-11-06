@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Default response - always return this if anything goes wrong
+  // This is the simplest possible response that Razorpay will accept
   const defaultResponse = {
     addresses: [
       {
@@ -90,123 +91,69 @@ export async function POST(request: NextRequest) {
     ],
   }
 
+  // Try to parse request, but always return a valid response
+  let body: any = {}
   try {
-    // Parse request body with timeout handling
-    let body: any = {}
-    try {
-      // Parse request body - use timeout to prevent hanging
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Request timeout')), 3000) // 3 second timeout
-      )
-      body = await Promise.race([request.json(), timeoutPromise]) as any
-    } catch (parseError) {
-      // If parsing fails or times out, return default response immediately
-      console.warn('Shipping Info API: Failed to parse request body, using default response', parseError)
-      return NextResponse.json(defaultResponse, { 
-        status: 200,
-        headers: corsHeaders 
-      })
-    }
-
-    // Log the request for debugging (but don't block on it)
+    body = await request.json()
     console.log('Shipping Info API Request:', JSON.stringify(body, null, 2))
-
-    // Extract request parameters
-    const { order_id, razorpay_order_id, email, contact, addresses } = body
-
-    // Validate required parameters - be lenient, don't fail if some are missing
-    // Razorpay may send requests with different formats
-    if (!addresses || !Array.isArray(addresses) || addresses.length === 0) {
-      console.warn('Shipping Info API: No addresses provided, returning default response')
-      // Return default response immediately
-      return NextResponse.json(defaultResponse, { 
-        status: 200,
-        headers: corsHeaders 
-      })
-    }
-
-    // Process each address and determine serviceability
-    // Currently servicing all pin codes in India
-    const responseAddresses = addresses.map((address: any) => {
-      const { id, zipcode, state_code, country } = address
-
-      // Validate required address fields - be lenient with validation
-      // Razorpay may send addresses with missing fields, we should handle gracefully
-      const addressId = id || '0'
-      const addressZipcode = zipcode || ''
-      const addressCountry = (country || '').toUpperCase()
-      const addressStateCode = state_code || ''
-
-      // Service all addresses - default to serviceable for all
-      // Check if country is India (IN) or if country is missing/empty (default to India)
-      const isIndia = addressCountry === 'IN' || addressCountry === '' || !addressCountry
-      
-      // Service all pin codes - ALWAYS return serviceable: true
-      // This ensures Magic Checkout doesn't get stuck
-      const serviceable = true // Always serviceable for all pincodes
-
-      // Define shipping methods - ALWAYS return shipping methods
-      // Method 1: Free shipping with COD (5 days delivery)
-      // Method 2: Standard delivery without COD (same day delivery)
-      // Always return shipping methods to ensure checkout proceeds
-      const shipping_methods = [
-        {
-          id: '1',
-          description: 'Free shipping',
-          name: 'Delivery within 5 days',
-          serviceable: true,
-          shipping_fee: 0, // Free shipping in paise (₹0)
-          cod: true, // COD available
-          cod_fee: 0, // No COD fee in paise (₹0)
-        },
-        {
-          id: '2',
-          description: 'Standard Delivery',
-          name: 'Delivered on the same day',
-          serviceable: true,
-          shipping_fee: 0, // Free shipping in paise (₹0)
-          cod: false, // COD not available for same day delivery
-          cod_fee: 0, // No COD fee in paise (₹0)
-        }
-      ]
-
-      return {
-        id: addressId,
-        zipcode: addressZipcode,
-        state_code: addressStateCode, // Include state_code in response
-        country: addressCountry || 'IN', // Default to IN if missing
-        shipping_methods: shipping_methods, // Always return shipping methods
-      }
-    })
-
-    // Log the response for debugging
-    console.log('Shipping Info API Response:', JSON.stringify({ addresses: responseAddresses }, null, 2))
-
-    // Return response in the format expected by Razorpay Magic Checkout
-    // Add CORS headers to allow Razorpay to access this endpoint
-    return NextResponse.json(
-      {
-        addresses: responseAddresses,
-      },
-      {
-        headers: corsHeaders,
-      }
-    )
-  } catch (error: any) {
-    // Log error but don't let it block the response
-    console.error('Shipping info API error:', {
-      message: error?.message || 'Unknown error',
-      error: error?.toString() || 'Unknown',
-    })
-    
-    // ALWAYS return a valid response immediately, even on error
-    // This prevents Magic Checkout from getting stuck
-    // Return default serviceable response for all addresses
-    return NextResponse.json(defaultResponse, { 
-      status: 200, // Always return 200, even on error, to prevent checkout from getting stuck
-      headers: corsHeaders 
-    })
+  } catch (parseError) {
+    // If parsing fails, just use empty body and return default response
+    console.warn('Shipping Info API: Failed to parse request body, using default response')
   }
+
+  // Extract addresses from request
+  const { addresses } = body || {}
+
+  // If addresses are provided, process them; otherwise return default
+  if (addresses && Array.isArray(addresses) && addresses.length > 0) {
+    try {
+      const responseAddresses = addresses.map((address: any) => {
+        const { id, zipcode, state_code, country } = address || {}
+        
+        return {
+          id: id || '0',
+          zipcode: zipcode || '',
+          state_code: state_code || '',
+          country: (country || 'IN').toUpperCase(),
+          shipping_methods: [
+            {
+              id: '1',
+              description: 'Free shipping',
+              name: 'Delivery within 5 days',
+              serviceable: true,
+              shipping_fee: 0,
+              cod: true,
+              cod_fee: 0,
+            },
+            {
+              id: '2',
+              description: 'Standard Delivery',
+              name: 'Delivered on the same day',
+              serviceable: true,
+              shipping_fee: 0,
+              cod: false,
+              cod_fee: 0,
+            }
+          ],
+        }
+      })
+
+      console.log('Shipping Info API Response:', JSON.stringify({ addresses: responseAddresses }, null, 2))
+      
+      return NextResponse.json(
+        { addresses: responseAddresses },
+        { status: 200, headers: corsHeaders }
+      )
+    } catch (error) {
+      console.error('Shipping Info API: Error processing addresses, using default response', error)
+    }
+  }
+
+  // Always return a valid response (default or processed)
+  return NextResponse.json(defaultResponse, { 
+    status: 200,
+    headers: corsHeaders 
+  })
 }
 
 // Handle OPTIONS for CORS preflight
