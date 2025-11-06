@@ -47,7 +47,8 @@ import { NextRequest, NextResponse } from 'next/server'
  * }
  */
 export const dynamic = 'force-dynamic'
-export const maxDuration = 10 // Maximum execution time in seconds (Vercel limit)
+export const runtime = 'edge'
+export const maxDuration = 10
 
 export async function POST(request: NextRequest) {
   // CORS headers

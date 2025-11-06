@@ -20,6 +20,7 @@ import { createClient } from '@supabase/supabase-js'
  */
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 10
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams

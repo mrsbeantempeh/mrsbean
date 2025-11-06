@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Razorpay from 'razorpay'
 
+export const dynamic = 'force-dynamic'
+export const maxDuration = 10
+
 export async function POST(request: NextRequest) {
   try {
     const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
