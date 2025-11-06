@@ -64,16 +64,16 @@ export async function POST(request: NextRequest) {
       {
         id: '0',
         zipcode: '',
-        country: 'IN',
+        country: 'in',
         shipping_methods: [
           {
             id: '1',
-            description: 'Free shipping',
-            name: 'Delivery within 24 hours',
+            name: 'Standard Delivery',
+            description: 'Delivered in 3-5 business days',
             serviceable: true,
-            shipping_fee: 0, // in paise (0 = ₹0)
+            shipping_fee: 5000, // in paise (5000 = ₹50)
             cod: true,
-            cod_fee: 0, // in paise (0 = ₹0)
+            cod_fee: 2000, // in paise (2000 = ₹20)
           },
         ],
       },
@@ -110,30 +110,30 @@ export async function POST(request: NextRequest) {
         // state_code (optional)
         const addressStateCode = address?.state_code || ''
         
-        // country can be lowercase ("in") or uppercase ("IN") - convert to uppercase
+        // country can be lowercase ("in") or uppercase ("IN") - keep as received or default to lowercase
         const addressCountry = address?.country 
-          ? String(address.country).toUpperCase() 
-          : 'IN'
+          ? String(address.country).toLowerCase() 
+          : 'in'
 
         // Determine serviceability based on country
         // Service all addresses in India
-        const isServiceable = addressCountry === 'IN' || addressCountry === ''
+        const isServiceable = addressCountry === 'in' || addressCountry === ''
 
         // Return address with shipping methods
+        // Match exact format from Razorpay documentation
         return {
           id: addressId,
           zipcode: addressZipcode,
-          ...(addressStateCode && { state_code: addressStateCode }), // Include state_code only if present
-          country: addressCountry,
+          country: addressCountry.toLowerCase(), // Return lowercase as per user's example
           shipping_methods: [
             {
               id: '1',
-              description: 'Free shipping',
-              name: 'Delivery within 24 hours',
+              name: 'Standard Delivery',
+              description: 'Delivered in 3-5 business days',
               serviceable: isServiceable,
-              shipping_fee: 0, // in paise (0 = ₹0)
+              shipping_fee: 5000, // in paise (5000 = ₹50)
               cod: isServiceable, // COD available if serviceable
-              cod_fee: 0, // in paise (0 = ₹0)
+              cod_fee: 2000, // in paise (2000 = ₹20)
             },
           ],
         }
