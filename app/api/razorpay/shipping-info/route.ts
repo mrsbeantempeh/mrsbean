@@ -88,22 +88,33 @@ export async function POST(request: NextRequest) {
       const serviceable = isIndia
 
       // Define shipping methods
-      // For now, we have one standard shipping method with free shipping and COD
+      // Method 1: Free shipping with COD (5 days delivery)
+      // Method 2: Standard delivery without COD (same day delivery)
       const shipping_methods = serviceable ? [
         {
-          id: 'standard',
-          name: 'Standard Delivery',
-          description: 'Free shipping with 24-hour delivery',
+          id: '1',
+          description: 'Free shipping',
+          name: 'Delivery within 5 days',
           serviceable: true,
-          shipping_fee: 0, // Free shipping in paise
+          shipping_fee: 0, // Free shipping in paise (₹0)
           cod: true, // COD available
-          cod_fee: 0, // No COD fee in paise
+          cod_fee: 0, // No COD fee in paise (₹0)
+        },
+        {
+          id: '2',
+          description: 'Standard Delivery',
+          name: 'Delivered on the same day',
+          serviceable: true,
+          shipping_fee: 0, // Free shipping in paise (₹0)
+          cod: false, // COD not available for same day delivery
+          cod_fee: 0, // No COD fee in paise (₹0)
         }
       ] : []
 
       return {
         id: id,
         zipcode: zipcode,
+        state_code: state_code || '', // Include state_code in response
         country: country,
         shipping_methods: shipping_methods,
       }
@@ -126,15 +137,25 @@ export async function POST(request: NextRequest) {
         addresses: (addresses || []).map((address: any) => ({
           id: address.id || '0',
           zipcode: address.zipcode || '',
+          state_code: address.state_code || '',
           country: address.country || 'IN',
           shipping_methods: [
             {
-              id: 'standard',
-              name: 'Standard Delivery',
-              description: 'Free shipping with 24-hour delivery',
+              id: '1',
+              description: 'Free shipping',
+              name: 'Delivery within 5 days',
               serviceable: true,
               shipping_fee: 0,
               cod: true,
+              cod_fee: 0,
+            },
+            {
+              id: '2',
+              description: 'Standard Delivery',
+              name: 'Delivered on the same day',
+              serviceable: true,
+              shipping_fee: 0,
+              cod: false,
               cod_fee: 0,
             }
           ],
@@ -147,15 +168,25 @@ export async function POST(request: NextRequest) {
           {
             id: '0',
             zipcode: '000000',
+            state_code: '',
             country: 'IN',
             shipping_methods: [
               {
-                id: 'standard',
-                name: 'Standard Delivery',
+                id: '1',
                 description: 'Free shipping',
+                name: 'Delivery within 5 days',
                 serviceable: true,
                 shipping_fee: 0,
                 cod: true,
+                cod_fee: 0,
+              },
+              {
+                id: '2',
+                description: 'Standard Delivery',
+                name: 'Delivered on the same day',
+                serviceable: true,
+                shipping_fee: 0,
+                cod: false,
                 cod_fee: 0,
               }
             ],
