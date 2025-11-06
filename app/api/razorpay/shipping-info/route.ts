@@ -56,25 +56,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Process each address and determine serviceability
+    // Currently servicing all pin codes in India
     const shipping_info = addresses.map((address: any) => {
       const { id, zipcode, state_code, country, city, state } = address
 
-      // Check if address is serviceable (currently delivering only in Pune, Maharashtra)
-      // You can customize this logic based on your delivery areas
-      const isPune = city?.toLowerCase().includes('pune') || 
-                    state?.toLowerCase().includes('maharashtra') ||
-                    state_code === 'MH'
+      // Service all addresses in India (country code 'IN')
+      // You can customize this logic if you want to restrict to specific areas
+      const isIndia = country === 'IN' || !country || country === ''
       
-      // Check if zipcode is in Pune area (common Pune zipcodes start with 411)
-      const isPuneZipcode = zipcode?.startsWith('411') || false
-
-      // Address is serviceable if it's in Pune/Maharashtra
-      const serviceable = isPune || isPuneZipcode
+      // Service all pin codes - set to true for all addresses
+      const serviceable = isIndia
 
       // Shipping fee in paise (₹0 for free shipping)
       const shipping_fee = serviceable ? 0 : null
 
-      // COD availability (currently enabled for serviceable areas)
+      // COD availability (enabled for all serviceable areas)
       const cod_available = serviceable
 
       // COD fee in paise (₹0 for no COD fee)
