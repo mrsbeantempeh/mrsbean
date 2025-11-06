@@ -142,7 +142,33 @@ export default function ProductsPage() {
 
       if (!createOrderResponse.ok) {
         // Extract error message with priority: error > details > status text
-        const errorMessage = responseData?.error || responseData?.details || responseText || `Failed to create payment order (HTTP ${createOrderResponse.status})`
+        // Handle both string and object error messages
+        let errorMessage = 'Failed to create payment order'
+        
+        if (responseData) {
+          if (typeof responseData === 'string') {
+            errorMessage = responseData
+          } else if (responseData.error) {
+            errorMessage = typeof responseData.error === 'string' 
+              ? responseData.error 
+              : JSON.stringify(responseData.error)
+          } else if (responseData.details) {
+            errorMessage = typeof responseData.details === 'string'
+              ? responseData.details
+              : JSON.stringify(responseData.details)
+          } else if (responseData.message) {
+            errorMessage = typeof responseData.message === 'string'
+              ? responseData.message
+              : JSON.stringify(responseData.message)
+          } else {
+            // If responseData is an object, stringify it
+            errorMessage = JSON.stringify(responseData)
+          }
+        } else if (responseText) {
+          errorMessage = responseText
+        } else {
+          errorMessage = `HTTP ${createOrderResponse.status}: ${createOrderResponse.statusText}`
+        }
         
         // Log full error details
         console.error('Order creation failed:', {
@@ -151,6 +177,7 @@ export default function ProductsPage() {
           errorData: responseData,
           errorText: responseText,
           fullError: JSON.stringify(responseData, null, 2),
+          extractedErrorMessage: errorMessage,
           requestBody: {
             amount: totalPrice,
             quantity: quantity,
@@ -160,9 +187,14 @@ export default function ProductsPage() {
         })
         
         // Show user-friendly error message with full details
-        const fullErrorMessage = responseData?.details 
-          ? `${errorMessage}\n\nDetails: ${responseData.details}`
+        const details = responseData?.details 
+          ? (typeof responseData.details === 'string' ? responseData.details : JSON.stringify(responseData.details))
+          : null
+        const fullErrorMessage = details 
+          ? `${errorMessage}\n\nDetails: ${details}`
           : errorMessage
+        
+        // Show alert with actual error message
         alert(`Order creation failed:\n\n${fullErrorMessage}`)
         throw new Error(errorMessage)
       }
