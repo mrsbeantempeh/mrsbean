@@ -102,19 +102,33 @@ export async function POST(request: NextRequest) {
   }
 
   // Extract addresses from request
-  const { addresses } = body || {}
+  // Razorpay may send addresses in different formats, so we need to handle both
+  const { addresses, order_id, razorpay_order_id, email, contact } = body || {}
 
   // If addresses are provided, process them; otherwise return default
   if (addresses && Array.isArray(addresses) && addresses.length > 0) {
     try {
       const responseAddresses = addresses.map((address: any) => {
-        const { id, zipcode, state_code, country } = address || {}
+        // Handle different address formats from Razorpay
+        // Razorpay may send: id as number (0) or string ("0")
+        // country as lowercase ("in") or uppercase ("IN")
+        // May include extra fields like city, state
+        
+        const addressId = address?.id !== undefined 
+          ? String(address.id) // Convert to string
+          : '0'
+        
+        const addressZipcode = address?.zipcode || ''
+        const addressStateCode = address?.state_code || ''
+        const addressCountry = address?.country 
+          ? String(address.country).toUpperCase() // Ensure uppercase
+          : 'IN'
         
         return {
-          id: id || '0',
-          zipcode: zipcode || '',
-          state_code: state_code || '',
-          country: (country || 'IN').toUpperCase(),
+          id: addressId,
+          zipcode: addressZipcode,
+          state_code: addressStateCode,
+          country: addressCountry,
           shipping_methods: [
             {
               id: '1',
