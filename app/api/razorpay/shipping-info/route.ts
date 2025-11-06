@@ -49,6 +49,13 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
+  // CORS headers - defined once at the top
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  }
+
   try {
     const body = await request.json()
 
@@ -56,12 +63,6 @@ export async function POST(request: NextRequest) {
     const { order_id, razorpay_order_id, email, contact, addresses } = body
 
     // Validate required parameters
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    }
-
     if (!order_id || !razorpay_order_id || !email || !contact) {
       return NextResponse.json(
         { error: 'Missing required parameters: order_id, razorpay_order_id, email, contact are mandatory' },
@@ -128,12 +129,6 @@ export async function POST(request: NextRequest) {
 
     // Return response in the format expected by Razorpay Magic Checkout
     // Add CORS headers to allow Razorpay to access this endpoint
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    }
-
     return NextResponse.json(
       {
         addresses: responseAddresses,
@@ -150,12 +145,6 @@ export async function POST(request: NextRequest) {
     try {
       const body = await request.json().catch(() => ({}))
       const { addresses } = body
-
-      const corsHeaders = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      }
 
       return NextResponse.json(
         {
@@ -190,12 +179,6 @@ export async function POST(request: NextRequest) {
       )
     } catch (fallbackError) {
       // If we can't parse the request, return a minimal valid response
-      const corsHeaders = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      }
-
       return NextResponse.json(
         {
           addresses: [
