@@ -103,6 +103,24 @@ export async function POST(request: NextRequest) {
       lineItems.push(lineItem)
     }
     
+    // Validate that we have line items for Magic Checkout
+    if (lineItems.length === 0) {
+      console.error('No line items provided for Magic Checkout')
+      return NextResponse.json(
+        { 
+          error: 'Product information is required for Magic Checkout',
+          details: 'line_items array cannot be empty'
+        },
+        { status: 400 }
+      )
+    }
+
+    // Ensure line_items_total matches the sum of line items
+    if (lineItemsTotal === 0) {
+      console.error('line_items_total is 0, recalculating from line items')
+      lineItemsTotal = lineItems.reduce((sum, item) => sum + (item.offer_price * item.quantity), 0)
+    }
+
     // Build order options according to Razorpay Magic Checkout documentation
     const options: any = {
       // Standard order fields
@@ -113,7 +131,7 @@ export async function POST(request: NextRequest) {
       // Magic Checkout required parameters
       // line_items_total: Total of offer_price for all line items (in paise)
       // This is CRITICAL - without this, Razorpay defaults to Standard Checkout
-      line_items_total: lineItemsTotal || amountInPaise,
+      line_items_total: lineItemsTotal,
       line_items: lineItems, // Array of line items
     }
 
@@ -121,6 +139,15 @@ export async function POST(request: NextRequest) {
     if (notes && Object.keys(notes).length > 0) {
       options.notes = notes
     }
+
+    // Log the order options for debugging (without sensitive data)
+    console.log('Creating Razorpay order:', {
+      amount: amountInPaise,
+      currency,
+      receipt: options.receipt,
+      line_items_total: lineItemsTotal,
+      line_items_count: lineItems.length,
+    })
 
     const order = await razorpay.orders.create(options)
 

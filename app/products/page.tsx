@@ -122,7 +122,15 @@ export default function ProductsPage() {
       })
 
       if (!createOrderResponse.ok) {
-        throw new Error('Failed to create payment order')
+        // Get the actual error message from the API
+        const errorData = await createOrderResponse.json().catch(() => ({}))
+        const errorMessage = errorData.error || errorData.details || 'Failed to create payment order'
+        console.error('Order creation failed:', {
+          status: createOrderResponse.status,
+          statusText: createOrderResponse.statusText,
+          error: errorData,
+        })
+        throw new Error(errorMessage)
       }
 
       const razorpayOrder = await createOrderResponse.json()
