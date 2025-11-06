@@ -121,42 +121,36 @@ export default function ProductsPage() {
         }),
       })
 
-      if (!createOrderResponse.ok) {
-        // Clone the response so we can read it multiple times
-        const responseClone = createOrderResponse.clone()
+      // Read response body once
+      let responseData: any = null
+      let responseText = ''
+      
+      try {
+        // Try to get response as text first
+        responseText = await createOrderResponse.text()
         
-        // Get the actual error message from the API
-        let errorData: any = {}
-        let errorText = ''
-        
+        // Try to parse as JSON
         try {
-          // Try to parse as JSON first
-          errorData = await createOrderResponse.json()
-        } catch (e) {
-          // If not JSON, try to get as text
-          try {
-            errorText = await responseClone.text()
-            // Try to parse the text as JSON
-            try {
-              errorData = JSON.parse(errorText)
-            } catch (parseError) {
-              // If not JSON, use text as error
-              errorData = { error: errorText || 'Unknown error' }
-            }
-          } catch (textError) {
-            errorData = { error: `HTTP ${createOrderResponse.status}: ${createOrderResponse.statusText}` }
-          }
+          responseData = JSON.parse(responseText)
+        } catch (parseError) {
+          // If not JSON, use text as response
+          responseData = { raw: responseText }
         }
-        
+      } catch (e) {
+        responseData = { error: `Failed to read response: ${e}` }
+      }
+
+      if (!createOrderResponse.ok) {
         // Extract error message with priority: error > details > status text
-        const errorMessage = errorData.error || errorData.details || errorText || `Failed to create payment order (HTTP ${createOrderResponse.status})`
+        const errorMessage = responseData?.error || responseData?.details || responseText || `Failed to create payment order (HTTP ${createOrderResponse.status})`
         
+        // Log full error details
         console.error('Order creation failed:', {
           status: createOrderResponse.status,
           statusText: createOrderResponse.statusText,
-          errorData: errorData,
-          errorText: errorText,
-          fullError: errorData,
+          errorData: responseData,
+          errorText: responseText,
+          fullError: JSON.stringify(responseData, null, 2),
           requestBody: {
             amount: totalPrice,
             quantity: quantity,
@@ -165,12 +159,16 @@ export default function ProductsPage() {
           },
         })
         
-        // Show user-friendly error message
-        alert(`Order creation failed: ${errorMessage}`)
+        // Show user-friendly error message with full details
+        const fullErrorMessage = responseData?.details 
+          ? `${errorMessage}\n\nDetails: ${responseData.details}`
+          : errorMessage
+        alert(`Order creation failed:\n\n${fullErrorMessage}`)
         throw new Error(errorMessage)
       }
 
-      const razorpayOrder = await createOrderResponse.json()
+      // Success - use parsed response data
+      const razorpayOrder = responseData
 
       // Step 2: Create or get Razorpay customer for Magic Checkout (if user is logged in)
       let customerId: string | undefined
