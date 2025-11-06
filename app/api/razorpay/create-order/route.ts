@@ -44,25 +44,75 @@ export async function POST(request: NextRequest) {
       productQuantity: product?.quantity,
     })
 
-    // Validate dynamic cart value
-    if (!amount || amount <= 0) {
-      console.error('Invalid amount:', amount)
+    // CRITICAL: For Magic Checkout, we MUST include line_items_total and line_items
+    // Without these, Razorpay defaults to Standard Checkout
+    // Reference: https://razorpay.com/docs/payments/magic-checkout/web/
+    
+    // CRITICAL: amount and line_items_total MUST match exactly for Magic Checkout
+    // If they differ by even ₹1, Razorpay silently switches to Standard Checkout
+    
+    let lineItems: any[] = []
+    let lineItemsTotal = 0
+    
+    if (!product) {
       return NextResponse.json(
-        { error: 'Invalid cart amount. Amount must be greater than 0.', details: `Received amount: ${amount}` },
+        { 
+          error: 'Product information is required for Magic Checkout',
+          details: 'line_items array cannot be empty. Product data is missing.',
+        },
         { status: 400 }
       )
     }
-
-    // Convert dynamic cart value from rupees to paise for Razorpay
-    // Razorpay requires amount in the smallest currency unit (paise for INR)
-    // Must be an integer, not a float
-    const amountInPaise = Math.round(Number(amount) * 100)
+    
+    // Convert prices from rupees to paise
+    // Must be integers, not floats
+    const priceInPaise = parseInt(String(Math.round(Number(product.price || amount) * 100)), 10)
+    const offerPriceInPaise = parseInt(String(Math.round(Number(product.offerPrice || product.price || amount) * 100)), 10)
+    const taxAmountInPaise = parseInt(String(Math.round(Number(product.taxAmount || 0) * 100)), 10)
+    const quantity = parseInt(String(Math.round(Number(product.quantity || 1))), 10)
+    
+    // Validate all amounts are integers
+    if (isNaN(priceInPaise) || isNaN(offerPriceInPaise) || isNaN(taxAmountInPaise) || isNaN(quantity)) {
+      console.error('Invalid price conversion:', {
+        originalPrice: product.price,
+        originalOfferPrice: product.offerPrice,
+        originalTaxAmount: product.taxAmount,
+        originalQuantity: product.quantity,
+        priceInPaise,
+        offerPriceInPaise,
+        taxAmountInPaise,
+        quantity,
+      })
+      return NextResponse.json(
+        { error: 'Invalid product prices. All prices must be valid numbers.', details: 'Prices must be integers in paise' },
+        { status: 400 }
+      )
+    }
+    
+    // Validate minimum values
+    if (quantity < 1) {
+      return NextResponse.json(
+        { error: 'Quantity must be at least 1' },
+        { status: 400 }
+      )
+    }
+    
+    // Calculate line_items_total: sum of (offer_price * quantity) for all items
+    // For single item: offer_price * quantity
+    lineItemsTotal = offerPriceInPaise * quantity
+    
+    // CRITICAL: Ensure line_items_total is an integer
+    lineItemsTotal = parseInt(String(Math.round(Number(lineItemsTotal))), 10)
+    
+    // CRITICAL: For Magic Checkout, amount MUST equal line_items_total
+    // Calculate amount from the same source to ensure they match exactly
+    const amountInPaise = lineItemsTotal
     
     // Validate that amount is a valid number
     if (isNaN(amountInPaise) || !isFinite(amountInPaise)) {
-      console.error('Invalid amount conversion:', { amount, amountInPaise })
+      console.error('Invalid amount conversion:', { amountInPaise, lineItemsTotal })
       return NextResponse.json(
-        { error: 'Invalid amount. Amount must be a valid number.', details: `Received amount: ${amount}` },
+        { error: 'Invalid amount. Amount must be a valid number.', details: `Calculated amount: ${amountInPaise}` },
         { status: 400 }
       )
     }
@@ -77,85 +127,47 @@ export async function POST(request: NextRequest) {
     
     // Ensure amount is an integer (Razorpay requirement)
     if (!Number.isInteger(amountInPaise)) {
-      console.error('Amount is not an integer:', { amount, amountInPaise })
+      console.error('Amount is not an integer:', { amountInPaise })
       return NextResponse.json(
         { error: 'Amount must be an integer (in paise).', details: `Calculated amount: ${amountInPaise}` },
         { status: 400 }
       )
     }
-
-    // CRITICAL: For Magic Checkout, we MUST include line_items_total and line_items
-    // Without these, Razorpay defaults to Standard Checkout
-    // Reference: https://razorpay.com/docs/payments/magic-checkout/web/
     
-    let lineItems: any[] = []
-    let lineItemsTotal = 0
-    
-    if (product) {
-      // Convert prices from rupees to paise
-      // Must be integers, not floats
-      const priceInPaise = Math.round(Number(product.price || amount) * 100)
-      const offerPriceInPaise = Math.round(Number(product.offerPrice || product.price || amount) * 100)
-      const taxAmountInPaise = Math.round(Number(product.taxAmount || 0) * 100)
-      const quantity = Number(product.quantity || 1)
+    // Build line_item according to Razorpay Magic Checkout documentation
+    const lineItem: any = {
+      // Mandatory fields
+      sku: product.sku || `SKU-${Date.now()}`, // Unique product ID (alphanumeric)
+      variant_id: product.variant_id || `VARIANT-${Date.now()}`, // Unique variant ID (alphanumeric)
+      price: priceInPaise, // Original price in paise
+      offer_price: offerPriceInPaise, // Final price after discount in paise
+      tax_amount: taxAmountInPaise, // Tax amount in paise
+      quantity: quantity, // Number of units
+      name: product.name || 'Product', // Product name
+      description: product.description || product.name || 'Product description', // Product description
       
-      // Validate all amounts are integers
-      if (!Number.isInteger(priceInPaise) || !Number.isInteger(offerPriceInPaise) || !Number.isInteger(taxAmountInPaise) || !Number.isInteger(quantity)) {
-        console.error('Invalid price conversion:', {
-          originalPrice: product.price,
-          originalOfferPrice: product.offerPrice,
-          originalTaxAmount: product.taxAmount,
-          originalQuantity: product.quantity,
-          priceInPaise,
-          offerPriceInPaise,
-          taxAmountInPaise,
-          quantity,
-        })
-        return NextResponse.json(
-          { error: 'Invalid product prices. All prices must be valid numbers.', details: 'Prices must be integers in paise' },
-          { status: 400 }
-        )
-      }
-      
-      // Calculate line_items_total: sum of (offer_price * quantity) for all items
-      // For single item: offer_price * quantity
-      lineItemsTotal = offerPriceInPaise * quantity
-      
-      // Build line_item according to Razorpay Magic Checkout documentation
-      const lineItem: any = {
-        // Mandatory fields
-        sku: product.sku || `SKU-${Date.now()}`, // Unique product ID (alphanumeric)
-        variant_id: product.variant_id || `VARIANT-${Date.now()}`, // Unique variant ID (alphanumeric)
-        price: priceInPaise, // Original price in paise
-        offer_price: offerPriceInPaise, // Final price after discount in paise
-        tax_amount: taxAmountInPaise, // Tax amount in paise
-        quantity: quantity, // Number of units
-        name: product.name || 'Product', // Product name
-        description: product.description || product.name || 'Product description', // Product description
-        
-        // Optional fields
-        weight: product.weight || 0, // Weight in grams
-        dimensions: product.dimensions ? {
-          length: String(product.dimensions.length || product.length || 0), // Length in centimeters (string)
-          width: String(product.dimensions.width || product.width || 0), // Width in centimeters (string)
-          height: String(product.dimensions.height || product.height || 0), // Height in centimeters (string)
-        } : {
-          length: String(product.length || 0),
-          width: String(product.width || 0),
-          height: String(product.height || 0),
-        },
-        image_url: product.image_url || product.image || '', // Product image URL
-        product_url: product.product_url || '', // Product page URL
-        notes: product.notes || {}, // Additional notes (key-value pairs)
-      }
-      
-      // Optional: other_product_codes (UPC, EAN, UNSPSC)
-      if (product.other_product_codes) {
-        lineItem.other_product_codes = product.other_product_codes
-      }
-      
-      lineItems.push(lineItem)
+      // Optional fields
+      weight: product.weight || 0, // Weight in grams
+      dimensions: product.dimensions ? {
+        length: String(product.dimensions.length || product.length || 0), // Length in centimeters (string)
+        width: String(product.dimensions.width || product.width || 0), // Width in centimeters (string)
+        height: String(product.dimensions.height || product.height || 0), // Height in centimeters (string)
+      } : {
+        length: String(product.length || 0),
+        width: String(product.width || 0),
+        height: String(product.height || 0),
+      },
+      image_url: product.image_url || product.image || '', // Product image URL
+      product_url: product.product_url || '', // Product page URL
+      notes: product.notes || {}, // Additional notes (key-value pairs)
     }
+    
+    // Optional: other_product_codes (UPC, EAN, UNSPSC)
+    if (product.other_product_codes) {
+      lineItem.other_product_codes = product.other_product_codes
+    }
+    
+    lineItems.push(lineItem)
     
     // Validate that we have line items for Magic Checkout
     if (lineItems.length === 0) {
@@ -173,35 +185,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Ensure line_items_total matches the sum of line items
-    if (lineItemsTotal === 0) {
-      console.error('line_items_total is 0, recalculating from line items')
-      lineItemsTotal = lineItems.reduce((sum, item) => sum + (item.offer_price * item.quantity), 0)
+    // CRITICAL: Final verification - ensure amount and line_items_total match exactly
+    // This is required for Magic Checkout to work
+    // CRITICAL: amount MUST equal line_items_total for Magic Checkout
+    // Use line_items_total as source of truth for amount
+    const finalAmount = parseInt(String(Math.round(Number(lineItemsTotal))), 10)
+    
+    // Verify they match (they should since amountInPaise = lineItemsTotal)
+    if (finalAmount !== amountInPaise) {
+      console.warn('Amount mismatch detected, using line_items_total as source of truth:', {
+        originalAmount: amountInPaise,
+        correctedAmount: finalAmount,
+        lineItemsTotal,
+      })
     }
-
-    // Ensure line_items_total is an integer
-    const lineItemsTotalInt = Math.round(Number(lineItemsTotal))
-    if (!Number.isInteger(lineItemsTotalInt)) {
-      console.error('line_items_total is not an integer:', { lineItemsTotal, lineItemsTotalInt })
-      return NextResponse.json(
-        { error: 'line_items_total must be an integer (in paise).', details: `Calculated: ${lineItemsTotal}` },
-        { status: 400 }
-      )
-    }
-
-    // Build order options according to Razorpay Magic Checkout documentation
-    // CRITICAL: All numeric fields must be integers, not floats
-    // Use parseInt to ensure they're integers (not just rounded)
+    
     const options: any = {
       // Standard order fields
-      amount: parseInt(String(Math.round(Number(amountInPaise))), 10), // Total order amount in paise (must be integer)
+      // CRITICAL: amount MUST equal line_items_total for Magic Checkout
+      amount: finalAmount, // Total order amount in paise (must equal line_items_total)
       currency,
       receipt: receipt || `receipt_${Date.now()}`,
       
       // Magic Checkout required parameters
       // line_items_total: Total of offer_price for all line items (in paise)
       // This is CRITICAL - without this, Razorpay defaults to Standard Checkout
-      line_items_total: parseInt(String(lineItemsTotalInt), 10), // Must be integer
+      // CRITICAL: amount and line_items_total MUST match exactly
+      line_items_total: finalAmount, // Must equal amount exactly
       line_items: lineItems.map(item => ({
         // Required fields only - match exact format from Razorpay documentation
         sku: item.sku,
