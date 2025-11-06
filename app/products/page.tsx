@@ -230,6 +230,7 @@ export default function ProductsPage() {
 
       // Step 3: Create order record in database (pending status)
       const orderId = `ORDER-${Date.now()}`
+      const receiptValue = `receipt_${Date.now()}_qty_${quantity}` // Random receipt value
 
       if (user) {
         await addOrder({
@@ -259,7 +260,61 @@ export default function ProductsPage() {
         })
       }
 
-      // Step 4: Open Razorpay Magic Checkout with callback URL
+      // Step 4: Send data to shipping info API before opening checkout
+      // This checks serviceability and prepares shipping information
+      try {
+        // Get customer email and contact
+        const customerEmail = user?.email || undefined
+        const customerContact = user && profile ? (profile.phone || undefined) : undefined
+        
+        // Format contact with country code if available
+        let formattedContact = customerContact
+        if (formattedContact && !formattedContact.startsWith('+')) {
+          // Add +91 for India if no country code
+          formattedContact = `+91${formattedContact.replace(/[^0-9]/g, '')}`
+        }
+        
+        // Get Razorpay order ID (remove "order_" prefix if present)
+        const razorpayOrderId = razorpayOrder.id.startsWith('order_') 
+          ? razorpayOrder.id.replace('order_', '') 
+          : razorpayOrder.id
+        
+        // Default address (India) - can be fetched from user profile or Magic Checkout later
+        const defaultAddress = {
+          id: '0',
+          zipcode: '411001', // Default to Pune
+          state_code: 'MH',
+          country: 'IN',
+        }
+        
+        // Send shipping info request
+        const shippingInfoResponse = await fetch('/api/razorpay/shipping-info', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            order_id: receiptValue, // Random receipt value
+            razorpay_order_id: razorpayOrderId, // Razorpay order ID without "order_" prefix
+            email: customerEmail || undefined, // Email if available
+            contact: formattedContact || undefined, // Contact with country code if available
+            addresses: [defaultAddress], // Default address array
+          }),
+        })
+        
+        if (shippingInfoResponse.ok) {
+          const shippingInfo = await shippingInfoResponse.json()
+          console.log('Shipping info response:', shippingInfo)
+          // Shipping info is checked - we can use this to validate serviceability
+        } else {
+          console.warn('Shipping info check failed, but proceeding with checkout')
+        }
+      } catch (error) {
+        console.error('Error checking shipping info:', error)
+        // Continue with checkout even if shipping info check fails
+      }
+
+      // Step 5: Open Razorpay Magic Checkout with callback URL
       // Using callback URL approach: Razorpay will redirect to /api/razorpay/callback on success/failure
       await openRazorpayCheckout({
         amount: razorpayOrder.amount,
