@@ -18,7 +18,7 @@ import { NextRequest, NextResponse } from 'next/server'
  *     {
  *       "id": "0",
  *       "zipcode": "411001",
- *       "state_code": "MH",
+ *       "state_code": "MH",  // optional
  *       "country": "IN"
  *     }
  *   ]
@@ -26,15 +26,22 @@ import { NextRequest, NextResponse } from 'next/server'
  * 
  * Response format:
  * {
- *   "order_id": "receipt#1",
- *   "razorpay_order_id": "order_EKwxwAgItmmXdp",
- *   "shipping_info": [
+ *   "addresses": [
  *     {
  *       "id": "0",
- *       "serviceable": true,
- *       "cod_available": true,
- *       "shipping_fee": 0,
- *       "cod_fee": 0
+ *       "zipcode": "411001",
+ *       "country": "IN",
+ *       "shipping_methods": [
+ *         {
+ *           "id": "standard",
+ *           "name": "Standard Delivery",
+ *           "description": "Free shipping",
+ *           "serviceable": true,
+ *           "shipping_fee": 0,
+ *           "cod": true,
+ *           "cod_fee": 0
+ *         }
+ *       ]
  *     }
  *   ]
  * }
@@ -48,6 +55,14 @@ export async function POST(request: NextRequest) {
     // Extract request parameters
     const { order_id, razorpay_order_id, email, contact, addresses } = body
 
+    // Validate required parameters
+    if (!order_id || !razorpay_order_id || !email || !contact) {
+      return NextResponse.json(
+        { error: 'Missing required parameters: order_id, razorpay_order_id, email, contact are mandatory' },
+        { status: 400 }
+      )
+    }
+
     if (!addresses || !Array.isArray(addresses) || addresses.length === 0) {
       return NextResponse.json(
         { error: 'Addresses array is required' },
@@ -57,8 +72,13 @@ export async function POST(request: NextRequest) {
 
     // Process each address and determine serviceability
     // Currently servicing all pin codes in India
-    const shipping_info = addresses.map((address: any) => {
-      const { id, zipcode, state_code, country, city, state } = address
+    const responseAddresses = addresses.map((address: any) => {
+      const { id, zipcode, state_code, country } = address
+
+      // Validate required address fields
+      if (!id || !zipcode || !country) {
+        throw new Error('Address must have id, zipcode, and country')
+      }
 
       // Service all addresses in India (country code 'IN')
       // You can customize this logic if you want to restrict to specific areas
@@ -67,49 +87,82 @@ export async function POST(request: NextRequest) {
       // Service all pin codes - set to true for all addresses
       const serviceable = isIndia
 
-      // Shipping fee in paise (₹0 for free shipping)
-      const shipping_fee = serviceable ? 0 : null
-
-      // COD availability (enabled for all serviceable areas)
-      const cod_available = serviceable
-
-      // COD fee in paise (₹0 for no COD fee)
-      const cod_fee = serviceable ? 0 : null
+      // Define shipping methods
+      // For now, we have one standard shipping method with free shipping and COD
+      const shipping_methods = serviceable ? [
+        {
+          id: 'standard',
+          name: 'Standard Delivery',
+          description: 'Free shipping with 24-hour delivery',
+          serviceable: true,
+          shipping_fee: 0, // Free shipping in paise
+          cod: true, // COD available
+          cod_fee: 0, // No COD fee in paise
+        }
+      ] : []
 
       return {
-        id: id || '0',
-        serviceable: serviceable,
-        cod_available: cod_available,
-        shipping_fee: shipping_fee,
-        cod_fee: cod_fee,
+        id: id,
+        zipcode: zipcode,
+        country: country,
+        shipping_methods: shipping_methods,
       }
     })
 
     // Return response in the format expected by Razorpay Magic Checkout
     return NextResponse.json({
-      order_id: order_id || '',
-      razorpay_order_id: razorpay_order_id || '',
-      shipping_info: shipping_info,
+      addresses: responseAddresses,
     })
   } catch (error: any) {
     console.error('Shipping info API error:', error)
     
     // Return a default response that allows checkout to proceed
     // This prevents Magic Checkout from getting stuck
-    const body = await request.json().catch(() => ({}))
-    const { order_id, razorpay_order_id, addresses } = body
+    try {
+      const body = await request.json().catch(() => ({}))
+      const { addresses } = body
 
-    return NextResponse.json({
-      order_id: order_id || '',
-      razorpay_order_id: razorpay_order_id || '',
-      shipping_info: (addresses || []).map((address: any) => ({
-        id: address.id || '0',
-        serviceable: true, // Default to serviceable to allow checkout
-        cod_available: true,
-        shipping_fee: 0,
-        cod_fee: 0,
-      })),
-    })
+      return NextResponse.json({
+        addresses: (addresses || []).map((address: any) => ({
+          id: address.id || '0',
+          zipcode: address.zipcode || '',
+          country: address.country || 'IN',
+          shipping_methods: [
+            {
+              id: 'standard',
+              name: 'Standard Delivery',
+              description: 'Free shipping with 24-hour delivery',
+              serviceable: true,
+              shipping_fee: 0,
+              cod: true,
+              cod_fee: 0,
+            }
+          ],
+        })),
+      })
+    } catch (fallbackError) {
+      // If we can't parse the request, return a minimal valid response
+      return NextResponse.json({
+        addresses: [
+          {
+            id: '0',
+            zipcode: '000000',
+            country: 'IN',
+            shipping_methods: [
+              {
+                id: 'standard',
+                name: 'Standard Delivery',
+                description: 'Free shipping',
+                serviceable: true,
+                shipping_fee: 0,
+                cod: true,
+                cod_fee: 0,
+              }
+            ],
+          }
+        ],
+      })
+    }
   }
 }
 
