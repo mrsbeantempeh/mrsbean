@@ -176,18 +176,48 @@ export async function POST(request: NextRequest) {
       lineItemsTotal = lineItems.reduce((sum, item) => sum + (item.offer_price * item.quantity), 0)
     }
 
+    // Ensure line_items_total is an integer
+    const lineItemsTotalInt = Math.round(Number(lineItemsTotal))
+    if (!Number.isInteger(lineItemsTotalInt)) {
+      console.error('line_items_total is not an integer:', { lineItemsTotal, lineItemsTotalInt })
+      return NextResponse.json(
+        { error: 'line_items_total must be an integer (in paise).', details: `Calculated: ${lineItemsTotal}` },
+        { status: 400 }
+      )
+    }
+
     // Build order options according to Razorpay Magic Checkout documentation
+    // CRITICAL: All numeric fields must be integers, not floats
+    // Use parseInt to ensure they're integers (not just rounded)
     const options: any = {
       // Standard order fields
-      amount: amountInPaise, // Total order amount in paise
+      amount: parseInt(String(Math.round(Number(amountInPaise))), 10), // Total order amount in paise (must be integer)
       currency,
       receipt: receipt || `receipt_${Date.now()}`,
       
       // Magic Checkout required parameters
       // line_items_total: Total of offer_price for all line items (in paise)
       // This is CRITICAL - without this, Razorpay defaults to Standard Checkout
-      line_items_total: lineItemsTotal,
-      line_items: lineItems, // Array of line items
+      line_items_total: parseInt(String(lineItemsTotalInt), 10), // Must be integer
+      line_items: lineItems.map(item => ({
+        // Ensure all numeric fields are integers using parseInt
+        ...item,
+        price: parseInt(String(Math.round(Number(item.price))), 10),
+        offer_price: parseInt(String(Math.round(Number(item.offer_price))), 10),
+        tax_amount: parseInt(String(Math.round(Number(item.tax_amount))), 10),
+        quantity: parseInt(String(Math.round(Number(item.quantity))), 10),
+        weight: item.weight ? parseInt(String(Math.round(Number(item.weight))), 10) : 0,
+        // Ensure dimensions are strings (as required by Razorpay)
+        dimensions: item.dimensions ? {
+          length: String(item.dimensions.length || '0'),
+          width: String(item.dimensions.width || '0'),
+          height: String(item.dimensions.height || '0'),
+        } : {
+          length: '0',
+          width: '0',
+          height: '0',
+        },
+      })),
     }
 
     // Add notes for Magic Checkout (customer details, address, etc.)
