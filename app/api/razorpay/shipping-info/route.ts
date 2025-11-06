@@ -47,6 +47,7 @@ import { NextRequest, NextResponse } from 'next/server'
  * }
  */
 export const dynamic = 'force-dynamic'
+export const maxDuration = 10 // Maximum execution time in seconds (Vercel limit)
 
 export async function POST(request: NextRequest) {
   // CORS headers - defined once at the top
@@ -57,17 +58,57 @@ export async function POST(request: NextRequest) {
     'Access-Control-Max-Age': '86400', // 24 hours
   }
 
+  // Default response - always return this if anything goes wrong
+  const defaultResponse = {
+    addresses: [
+      {
+        id: '0',
+        zipcode: '',
+        state_code: '',
+        country: 'IN',
+        shipping_methods: [
+          {
+            id: '1',
+            description: 'Free shipping',
+            name: 'Delivery within 5 days',
+            serviceable: true,
+            shipping_fee: 0,
+            cod: true,
+            cod_fee: 0,
+          },
+          {
+            id: '2',
+            description: 'Standard Delivery',
+            name: 'Delivered on the same day',
+            serviceable: true,
+            shipping_fee: 0,
+            cod: false,
+            cod_fee: 0,
+          }
+        ],
+      }
+    ],
+  }
+
   try {
     // Parse request body with timeout handling
     let body: any = {}
     try {
-      body = await request.json()
+      // Parse request body - use timeout to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 3000) // 3 second timeout
+      )
+      body = await Promise.race([request.json(), timeoutPromise]) as any
     } catch (parseError) {
-      console.warn('Shipping Info API: Failed to parse request body, using empty object')
-      body = {}
+      // If parsing fails or times out, return default response immediately
+      console.warn('Shipping Info API: Failed to parse request body, using default response', parseError)
+      return NextResponse.json(defaultResponse, { 
+        status: 200,
+        headers: corsHeaders 
+      })
     }
 
-    // Log the request for debugging
+    // Log the request for debugging (but don't block on it)
     console.log('Shipping Info API Request:', JSON.stringify(body, null, 2))
 
     // Extract request parameters
@@ -77,40 +118,11 @@ export async function POST(request: NextRequest) {
     // Razorpay may send requests with different formats
     if (!addresses || !Array.isArray(addresses) || addresses.length === 0) {
       console.warn('Shipping Info API: No addresses provided, returning default response')
-      // Return a default serviceable response instead of error
-      return NextResponse.json(
-        {
-          addresses: [
-            {
-              id: '0',
-              zipcode: '',
-              state_code: '',
-              country: 'IN',
-              shipping_methods: [
-                {
-                  id: '1',
-                  description: 'Free shipping',
-                  name: 'Delivery within 5 days',
-                  serviceable: true,
-                  shipping_fee: 0,
-                  cod: true,
-                  cod_fee: 0,
-                },
-                {
-                  id: '2',
-                  description: 'Standard Delivery',
-                  name: 'Delivered on the same day',
-                  serviceable: true,
-                  shipping_fee: 0,
-                  cod: false,
-                  cod_fee: 0,
-                }
-              ],
-            }
-          ],
-        },
-        { headers: corsHeaders }
-      )
+      // Return default response immediately
+      return NextResponse.json(defaultResponse, { 
+        status: 200,
+        headers: corsHeaders 
+      })
     }
 
     // Process each address and determine serviceability
@@ -181,51 +193,19 @@ export async function POST(request: NextRequest) {
       }
     )
   } catch (error: any) {
+    // Log error but don't let it block the response
     console.error('Shipping info API error:', {
-      message: error.message,
-      stack: error.stack,
-      error: JSON.stringify(error, null, 2),
+      message: error?.message || 'Unknown error',
+      error: error?.toString() || 'Unknown',
     })
     
-    // ALWAYS return a valid response, even on error
+    // ALWAYS return a valid response immediately, even on error
     // This prevents Magic Checkout from getting stuck
-    // Return a default serviceable response for all addresses
-    return NextResponse.json(
-      {
-        addresses: [
-          {
-            id: '0',
-            zipcode: '',
-            state_code: '',
-            country: 'IN',
-            shipping_methods: [
-              {
-                id: '1',
-                description: 'Free shipping',
-                name: 'Delivery within 5 days',
-                serviceable: true,
-                shipping_fee: 0,
-                cod: true,
-                cod_fee: 0,
-              },
-              {
-                id: '2',
-                description: 'Standard Delivery',
-                name: 'Delivered on the same day',
-                serviceable: true,
-                shipping_fee: 0,
-                cod: false,
-                cod_fee: 0,
-              }
-            ],
-          }
-        ],
-      },
-      { 
-        status: 200, // Always return 200, even on error, to prevent checkout from getting stuck
-        headers: corsHeaders 
-      }
-    )
+    // Return default serviceable response for all addresses
+    return NextResponse.json(defaultResponse, { 
+      status: 200, // Always return 200, even on error, to prevent checkout from getting stuck
+      headers: corsHeaders 
+    })
   }
 }
 
