@@ -13,11 +13,12 @@ export const loadRazorpayScript = (): Promise<void> => {
       return
     }
 
+    // Use Magic Checkout script for Magic Checkout integration
     const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.src = 'https://checkout.razorpay.com/v1/magic-checkout.js'
     script.async = true
     script.onload = () => resolve()
-    script.onerror = () => reject(new Error('Failed to load Razorpay'))
+    script.onerror = () => reject(new Error('Failed to load Razorpay Magic Checkout'))
     document.body.appendChild(script)
   })
 }
@@ -44,6 +45,10 @@ export const openRazorpayCheckout = async (options: RazorpayOptions) => {
     name: 'Mrs Bean',
     description: options.productName,
     order_id: options.orderId,
+    // Enable Magic Checkout
+    one_click_checkout: true,
+    // Show coupons (if configured in Razorpay Dashboard)
+    show_coupons: true,
     handler: function (response: any) {
       options.onSuccess(
         response.razorpay_payment_id,
@@ -55,20 +60,6 @@ export const openRazorpayCheckout = async (options: RazorpayOptions) => {
       name: options.customerName || '',
       email: options.customerEmail || '',
       contact: options.customerContact || '',
-    },
-    // Magic Checkout configuration
-    // Note: Magic Checkout is automatically enabled when activated on your Razorpay account
-    // These options enhance the checkout experience
-    method: {
-      card: true,
-      netbanking: true,
-      wallet: true,
-      upi: true,
-      emi: true,
-    },
-    // Enable save for Magic Checkout - allows customers to save payment methods
-    save: {
-      enabled: true,
     },
     // Add customer_id for returning customers (Magic Checkout feature)
     ...(options.customerId && { customer_id: options.customerId }),
