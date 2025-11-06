@@ -274,10 +274,10 @@ export default function ProductsPage() {
           formattedContact = `+91${formattedContact.replace(/[^0-9]/g, '')}`
         }
         
-        // Get Razorpay order ID (remove "order_" prefix if present)
+        // Get Razorpay order ID (ensure it has "order_" prefix)
         const razorpayOrderId = razorpayOrder.id.startsWith('order_') 
-          ? razorpayOrder.id.replace('order_', '') 
-          : razorpayOrder.id
+          ? razorpayOrder.id 
+          : `order_${razorpayOrder.id}`
         
         // Default address (India) - can be fetched from user profile or Magic Checkout later
         const defaultAddress = {
@@ -294,8 +294,8 @@ export default function ProductsPage() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            order_id: receiptValue, // Random receipt value
-            razorpay_order_id: razorpayOrderId, // Razorpay order ID without "order_" prefix
+            order_id: receiptValue, // Random integer receipt value
+            razorpay_order_id: razorpayOrderId, // Razorpay order ID with "order_" prefix
             email: customerEmail || undefined, // Email if available
             contact: formattedContact || undefined, // Contact with country code if available
             addresses: [defaultAddress], // Default address array
