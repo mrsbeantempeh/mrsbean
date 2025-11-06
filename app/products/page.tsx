@@ -123,12 +123,25 @@ export default function ProductsPage() {
 
       if (!createOrderResponse.ok) {
         // Get the actual error message from the API
-        const errorData = await createOrderResponse.json().catch(() => ({}))
-        const errorMessage = errorData.error || errorData.details || 'Failed to create payment order'
+        let errorData: any = {}
+        try {
+          errorData = await createOrderResponse.json()
+        } catch (e) {
+          // If response is not JSON, get text
+          const text = await createOrderResponse.text().catch(() => '')
+          errorData = { error: text || 'Unknown error' }
+        }
+        
+        const errorMessage = errorData.error || errorData.details || `Failed to create payment order (${createOrderResponse.status})`
         console.error('Order creation failed:', {
           status: createOrderResponse.status,
           statusText: createOrderResponse.statusText,
           error: errorData,
+          requestBody: {
+            amount: totalPrice,
+            quantity: quantity,
+            productName: product.name,
+          },
         })
         throw new Error(errorMessage)
       }

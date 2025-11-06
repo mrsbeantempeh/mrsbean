@@ -27,12 +27,25 @@ export async function POST(request: NextRequest) {
       key_secret: keySecret,
     })
 
-    const { amount, currency = 'INR', receipt, notes, product } = await request.json()
+    const body = await request.json()
+    const { amount, currency = 'INR', receipt, notes, product } = body
+
+    // Log the request for debugging
+    console.log('Order creation request:', {
+      amount,
+      currency,
+      receipt,
+      hasProduct: !!product,
+      productName: product?.name,
+      productPrice: product?.price,
+      productQuantity: product?.quantity,
+    })
 
     // Validate dynamic cart value
     if (!amount || amount <= 0) {
+      console.error('Invalid amount:', amount)
       return NextResponse.json(
-        { error: 'Invalid cart amount. Amount must be greater than 0.' },
+        { error: 'Invalid cart amount. Amount must be greater than 0.', details: `Received amount: ${amount}` },
         { status: 400 }
       )
     }
@@ -105,11 +118,15 @@ export async function POST(request: NextRequest) {
     
     // Validate that we have line items for Magic Checkout
     if (lineItems.length === 0) {
-      console.error('No line items provided for Magic Checkout')
+      console.error('No line items provided for Magic Checkout', {
+        hasProduct: !!product,
+        productData: product,
+      })
       return NextResponse.json(
         { 
           error: 'Product information is required for Magic Checkout',
-          details: 'line_items array cannot be empty'
+          details: 'line_items array cannot be empty. Product data is missing or invalid.',
+          receivedProduct: product || null,
         },
         { status: 400 }
       )
