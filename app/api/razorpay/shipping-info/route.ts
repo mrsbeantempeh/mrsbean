@@ -71,20 +71,20 @@ export async function POST(request: NextRequest) {
           {
             id: '1',
             description: 'Free shipping',
-            name: 'Delivery within 5 days',
+            name: 'Delivery within 24 hours',
             serviceable: true,
-            shipping_fee: 0,
+            shipping_fee: 0, // in paise (0 = ₹0)
             cod: true,
-            cod_fee: 0,
+            cod_fee: 0, // in paise (0 = ₹0)
           },
           {
             id: '2',
             description: 'Standard Delivery',
             name: 'Delivered on the same day',
             serviceable: true,
-            shipping_fee: 0,
+            shipping_fee: 0, // in paise (0 = ₹0)
             cod: false,
-            cod_fee: 0,
+            cod_fee: 0, // in paise (0 = ₹0)
           }
         ],
       }
@@ -119,20 +119,20 @@ export async function POST(request: NextRequest) {
             {
               id: '1',
               description: 'Free shipping',
-              name: 'Delivery within 5 days',
+              name: 'Delivery within 24 hours',
               serviceable: true,
-              shipping_fee: 0,
+              shipping_fee: 0, // in paise (0 = ₹0)
               cod: true,
-              cod_fee: 0,
+              cod_fee: 0, // in paise (0 = ₹0)
             },
             {
               id: '2',
               description: 'Standard Delivery',
               name: 'Delivered on the same day',
               serviceable: true,
-              shipping_fee: 0,
+              shipping_fee: 0, // in paise (0 = ₹0)
               cod: false,
-              cod_fee: 0,
+              cod_fee: 0, // in paise (0 = ₹0)
             }
           ],
         }
@@ -195,20 +195,20 @@ export async function GET(request: NextRequest) {
               {
                 id: '1',
                 description: 'Free shipping',
-                name: 'Delivery within 5 days',
+                name: 'Delivery within 24 hours',
                 serviceable: true,
-                shipping_fee: 0,
+                shipping_fee: 0, // in paise (0 = ₹0)
                 cod: true,
-                cod_fee: 0,
+                cod_fee: 0, // in paise (0 = ₹0)
               },
               {
                 id: '2',
                 description: 'Standard Delivery',
                 name: 'Delivered on the same day',
                 serviceable: true,
-                shipping_fee: 0,
+                shipping_fee: 0, // in paise (0 = ₹0)
                 cod: false,
-                cod_fee: 0,
+                cod_fee: 0, // in paise (0 = ₹0)
               }
             ],
           }
