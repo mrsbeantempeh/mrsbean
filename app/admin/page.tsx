@@ -161,7 +161,7 @@ export default function AdminDashboard() {
     let matchesMetric = true
     if (selectedMetric) {
       const transaction = transactions.find(t => t.order_id === order.order_id)
-      const hasSuccessfulTransaction = transaction && transaction.status === 'success'
+      const hasSuccessfulTransaction = !!(transaction && transaction.status === 'success')
       
       switch (selectedMetric) {
         case 'cart-abandoned':
@@ -206,7 +206,7 @@ export default function AdminDashboard() {
   // 2. Transaction exists but status is failed/pending
   const cartAbandonedOrders = orders.filter(order => {
     const transaction = transactions.find(t => t.order_id === order.order_id)
-    const hasSuccessfulTransaction = transaction && transaction.status === 'success'
+    const hasSuccessfulTransaction = !!(transaction && transaction.status === 'success')
     // Cart abandoned if order exists but no successful payment
     return !hasSuccessfulTransaction
   })
@@ -528,7 +528,7 @@ export default function AdminDashboard() {
                 <tbody className="divide-y divide-navy-100">
                   {filteredOrders.map((order) => {
                     const transaction = transactions.find(t => t.order_id === order.order_id)
-                    const hasSuccessfulTransaction = transaction && transaction.status === 'success'
+                    const hasSuccessfulTransaction = !!(transaction && transaction.status === 'success')
                     
                     // Determine display status: If pending and no successful payment, it's cart abandoned
                     const displayStatus = order.status === 'pending' && !hasSuccessfulTransaction 
