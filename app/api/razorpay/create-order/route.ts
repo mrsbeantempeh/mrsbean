@@ -164,7 +164,34 @@ export async function POST(request: NextRequest) {
       receipt: options.receipt,
       line_items_total: lineItemsTotal,
       line_items_count: lineItems.length,
+      line_items_sample: lineItems.length > 0 ? {
+        sku: lineItems[0].sku,
+        variant_id: lineItems[0].variant_id,
+        price: lineItems[0].price,
+        offer_price: lineItems[0].offer_price,
+        tax_amount: lineItems[0].tax_amount,
+        quantity: lineItems[0].quantity,
+        name: lineItems[0].name,
+        description: lineItems[0].description,
+      } : null,
     })
+
+    // Log full order options (for debugging - remove sensitive data in production)
+    console.log('Full order options (sanitized):', JSON.stringify({
+      ...options,
+      line_items: lineItems.map(item => ({
+        sku: item.sku,
+        variant_id: item.variant_id,
+        price: item.price,
+        offer_price: item.offer_price,
+        tax_amount: item.tax_amount,
+        quantity: item.quantity,
+        name: item.name,
+        description: item.description,
+        weight: item.weight,
+        dimensions: item.dimensions,
+      })),
+    }, null, 2))
 
     const order = await razorpay.orders.create(options)
 
@@ -175,6 +202,7 @@ export async function POST(request: NextRequest) {
       receipt: order.receipt,
     })
   } catch (error: any) {
+    // Log full error details for debugging
     console.error('Razorpay order creation error:', {
       message: error.message,
       stack: error.stack,
@@ -185,20 +213,39 @@ export async function POST(request: NextRequest) {
       source: error.source,
       step: error.step,
       reason: error.reason,
+      errorObject: JSON.stringify(error, null, 2),
+      errorKeys: Object.keys(error || {}),
     })
+    
+    // Extract error details from Razorpay error object
+    // Razorpay errors can have different structures
+    const errorMessage = error.message || error.description || error.error?.description || 'Failed to create order'
+    const errorCode = error.code || error.error?.code || error.statusCode || 'UNKNOWN_ERROR'
+    const errorDetails = error.description || error.error?.description || error.reason || error.error?.field || 'Unknown error'
+    const statusCode = error.statusCode || error.error?.statusCode || 500
     
     // Return detailed error information
     return NextResponse.json(
       { 
-        error: error.message || error.description || 'Failed to create order',
-        details: error.code || 'Unknown error',
-        field: error.field || null,
-        source: error.source || null,
-        step: error.step || null,
-        reason: error.reason || null,
-        statusCode: error.statusCode || 500,
+        error: errorMessage,
+        details: errorDetails,
+        code: errorCode,
+        field: error.field || error.error?.field || null,
+        source: error.source || error.error?.source || null,
+        step: error.step || error.error?.step || null,
+        reason: error.reason || error.error?.reason || null,
+        statusCode: statusCode,
+        // Include full error for debugging (in development)
+        ...(process.env.NODE_ENV === 'development' && { 
+          fullError: {
+            message: error.message,
+            code: error.code,
+            statusCode: error.statusCode,
+            description: error.description,
+          }
+        }),
       },
-      { status: error.statusCode || 500 }
+      { status: statusCode }
     )
   }
 }
