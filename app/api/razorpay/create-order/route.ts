@@ -200,23 +200,28 @@ export async function POST(request: NextRequest) {
       // This is CRITICAL - without this, Razorpay defaults to Standard Checkout
       line_items_total: parseInt(String(lineItemsTotalInt), 10), // Must be integer
       line_items: lineItems.map(item => ({
-        // Ensure all numeric fields are integers using parseInt
-        ...item,
-        price: parseInt(String(Math.round(Number(item.price))), 10),
-        offer_price: parseInt(String(Math.round(Number(item.offer_price))), 10),
-        tax_amount: parseInt(String(Math.round(Number(item.tax_amount))), 10),
+        // Required fields only - match exact format from Razorpay documentation
+        sku: item.sku,
+        variant_id: item.variant_id,
+        price: parseInt(String(Math.round(Number(item.price))), 10), // in paise
+        offer_price: parseInt(String(Math.round(Number(item.offer_price))), 10), // in paise
+        tax_amount: parseInt(String(Math.round(Number(item.tax_amount))), 10), // in paise
         quantity: parseInt(String(Math.round(Number(item.quantity))), 10),
-        weight: item.weight ? parseInt(String(Math.round(Number(item.weight))), 10) : 0,
-        // Ensure dimensions are strings (as required by Razorpay)
-        dimensions: item.dimensions ? {
-          length: String(item.dimensions.length || '0'),
-          width: String(item.dimensions.width || '0'),
-          height: String(item.dimensions.height || '0'),
-        } : {
-          length: '0',
-          width: '0',
-          height: '0',
-        },
+        name: item.name,
+        description: item.description,
+        // Optional fields - only include if they have values
+        ...(item.weight && { weight: parseInt(String(Math.round(Number(item.weight))), 10) }),
+        ...(item.dimensions && {
+          dimensions: {
+            length: String(item.dimensions.length || '0'),
+            width: String(item.dimensions.width || '0'),
+            height: String(item.dimensions.height || '0'),
+          },
+        }),
+        ...(item.image_url && { image_url: item.image_url }),
+        ...(item.product_url && { product_url: item.product_url }),
+        ...(item.other_product_codes && { other_product_codes: item.other_product_codes }),
+        ...(item.notes && Object.keys(item.notes).length > 0 && { notes: item.notes }),
       })),
     }
 
