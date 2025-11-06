@@ -42,54 +42,37 @@ interface RazorpayOptions {
 export const openRazorpayCheckout = async (options: RazorpayOptions) => {
   await loadRazorpayScript()
 
+  // Build Razorpay options exactly as per Razorpay documentation
   const razorpayOptions: any = {
     // Mandatory fields for Magic Checkout
-    key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
+    key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '', // Enter the Key ID generated from the Dashboard
     one_click_checkout: true, // Mandatory: true for Magic Checkout
-    name: 'Mrs Bean', // Mandatory: Business name
-    order_id: options.orderId, // Mandatory: Order ID from Orders API
-    
-    // Standard Razorpay options (required for checkout)
-    amount: options.amount, // Amount in paise (already converted)
-    currency: 'INR',
-    description: options.productName,
+    name: 'Mrs Bean', // your business name
+    order_id: options.orderId, // This is the Order ID. Pass the `id` obtained in the response of Step 1; mandatory
     
     // Optional Magic Checkout options
-    show_coupons: true, // Optional: Show coupons (default: true)
+    show_coupons: true, // default true; false if coupon widget should be hidden
+    
+    // Callback URL approach - Razorpay will redirect to this URL on success/failure
+    callback_url: options.callbackUrl || `${typeof window !== 'undefined' ? window.location.origin : ''}/api/razorpay/callback`,
+    redirect: 'true', // Redirect to callback URL after payment (as string, not boolean)
     
     // Prefill customer details (optional but recommended for better conversion)
+    // We recommend using the prefill parameter to auto-fill customer's contact information especially their phone number
     prefill: {
-      name: options.customerName || '',
-      email: options.customerEmail || '',
-      contact: options.customerContact || '', // Format: +(country code)(phone number)
+      name: options.customerName || '', // your customer's name
+      email: options.customerEmail || '', // your customer's email
+      contact: options.customerContact || '', // Provide the customer's phone number for better conversion rates
     },
     
     // Notes (optional): Store additional information (max 15 key-value pairs, 256 chars each)
     ...(options.notes && { notes: options.notes }),
-    
-    // Customer ID for returning customers (Magic Checkout feature)
-    ...(options.customerId && { customer_id: options.customerId }),
-    
-    // Theme (optional): Customize appearance
-    theme: {
-      color: '#102a43', // Navy blue theme
-    },
-    
-    // Modal (optional): Handle modal behavior
-    modal: {
-      ondismiss: function () {
-        if (options.onError) {
-          options.onError({ message: 'Payment cancelled by user' })
-        }
-      },
-    },
   }
   
-  // Use callback URL approach (recommended) - Razorpay will redirect to callback URL on success/failure
-  // This matches Razorpay's recommended approach for Magic Checkout
-  const callbackUrl = options.callbackUrl || `${typeof window !== 'undefined' ? window.location.origin : ''}/api/razorpay/callback`
-  razorpayOptions.callback_url = callbackUrl
-  razorpayOptions.redirect = true // Redirect to callback URL after payment
+  // Customer ID for returning customers (Magic Checkout feature) - optional
+  if (options.customerId) {
+    razorpayOptions.customer_id = options.customerId
+  }
   
   // Note: When using callback_url + redirect, we don't use handler function
   // Razorpay will redirect to callback_url on success/failure
