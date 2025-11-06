@@ -56,17 +56,23 @@ export async function POST(request: NextRequest) {
     const { order_id, razorpay_order_id, email, contact, addresses } = body
 
     // Validate required parameters
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    }
+
     if (!order_id || !razorpay_order_id || !email || !contact) {
       return NextResponse.json(
         { error: 'Missing required parameters: order_id, razorpay_order_id, email, contact are mandatory' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
     if (!addresses || !Array.isArray(addresses) || addresses.length === 0) {
       return NextResponse.json(
         { error: 'Addresses array is required' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -122,16 +128,18 @@ export async function POST(request: NextRequest) {
 
     // Return response in the format expected by Razorpay Magic Checkout
     // Add CORS headers to allow Razorpay to access this endpoint
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    }
+
     return NextResponse.json(
       {
         addresses: responseAddresses,
       },
       {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        },
+        headers: corsHeaders,
       }
     )
   } catch (error: any) {
@@ -143,43 +151,19 @@ export async function POST(request: NextRequest) {
       const body = await request.json().catch(() => ({}))
       const { addresses } = body
 
-      return NextResponse.json({
-        addresses: (addresses || []).map((address: any) => ({
-          id: address.id || '0',
-          zipcode: address.zipcode || '',
-          state_code: address.state_code || '',
-          country: address.country || 'IN',
-          shipping_methods: [
-            {
-              id: '1',
-              description: 'Free shipping',
-              name: 'Delivery within 5 days',
-              serviceable: true,
-              shipping_fee: 0,
-              cod: true,
-              cod_fee: 0,
-            },
-            {
-              id: '2',
-              description: 'Standard Delivery',
-              name: 'Delivered on the same day',
-              serviceable: true,
-              shipping_fee: 0,
-              cod: false,
-              cod_fee: 0,
-            }
-          ],
-        })),
-      })
-    } catch (fallbackError) {
-      // If we can't parse the request, return a minimal valid response
-      return NextResponse.json({
-        addresses: [
-          {
-            id: '0',
-            zipcode: '000000',
-            state_code: '',
-            country: 'IN',
+      const corsHeaders = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      }
+
+      return NextResponse.json(
+        {
+          addresses: (addresses || []).map((address: any) => ({
+            id: address.id || '0',
+            zipcode: address.zipcode || '',
+            state_code: address.state_code || '',
+            country: address.country || 'IN',
             shipping_methods: [
               {
                 id: '1',
@@ -200,9 +184,51 @@ export async function POST(request: NextRequest) {
                 cod_fee: 0,
               }
             ],
-          }
-        ],
-      })
+          })),
+        },
+        { headers: corsHeaders }
+      )
+    } catch (fallbackError) {
+      // If we can't parse the request, return a minimal valid response
+      const corsHeaders = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      }
+
+      return NextResponse.json(
+        {
+          addresses: [
+            {
+              id: '0',
+              zipcode: '000000',
+              state_code: '',
+              country: 'IN',
+              shipping_methods: [
+                {
+                  id: '1',
+                  description: 'Free shipping',
+                  name: 'Delivery within 5 days',
+                  serviceable: true,
+                  shipping_fee: 0,
+                  cod: true,
+                  cod_fee: 0,
+                },
+                {
+                  id: '2',
+                  description: 'Standard Delivery',
+                  name: 'Delivered on the same day',
+                  serviceable: true,
+                  shipping_fee: 0,
+                  cod: false,
+                  cod_fee: 0,
+                }
+              ],
+            }
+          ],
+        },
+        { headers: corsHeaders }
+      )
     }
   }
 }
