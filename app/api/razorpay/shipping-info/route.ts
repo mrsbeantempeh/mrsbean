@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
  * - No authentication required
  * - Should return shipping serviceability, COD serviceability, shipping fees and COD fees
  * 
- * Request format:
+ * Request format (from Razorpay):
  * {
  *   "order_id": "receipt#1",
  *   "razorpay_order_id": "order_EKwxwAgItmmXdp",
@@ -16,15 +16,15 @@ import { NextRequest, NextResponse } from 'next/server'
  *   "contact": "+919000090000",
  *   "addresses": [
  *     {
- *       "id": "0",
+ *       "id": "0" or 0,
  *       "zipcode": "411001",
  *       "state_code": "MH",  // optional
- *       "country": "IN"
+ *       "country": "IN" or "in"
  *     }
  *   ]
  * }
  * 
- * Response format:
+ * Response format (expected by Razorpay):
  * {
  *   "addresses": [
  *     {
@@ -33,13 +33,13 @@ import { NextRequest, NextResponse } from 'next/server'
  *       "country": "IN",
  *       "shipping_methods": [
  *         {
- *           "id": "standard",
- *           "name": "Standard Delivery",
+ *           "id": "1",
  *           "description": "Free shipping",
+ *           "name": "Delivery within 24 hours",
  *           "serviceable": true,
- *           "shipping_fee": 0,
+ *           "shipping_fee": 0,  // in paise
  *           "cod": true,
- *           "cod_fee": 0
+ *           "cod_fee": 0  // in paise
  *         }
  *       ]
  *     }
@@ -50,7 +50,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 10 // Maximum execution time in seconds (Vercel limit)
 
 export async function POST(request: NextRequest) {
-  // CORS headers - defined once at the top
+  // CORS headers
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
@@ -59,13 +59,11 @@ export async function POST(request: NextRequest) {
   }
 
   // Default response - always return this if anything goes wrong
-  // This is the simplest possible response that Razorpay will accept
   const defaultResponse = {
     addresses: [
       {
         id: '0',
         zipcode: '',
-        state_code: '',
         country: 'IN',
         shipping_methods: [
           {
@@ -77,77 +75,66 @@ export async function POST(request: NextRequest) {
             cod: true,
             cod_fee: 0, // in paise (0 = ₹0)
           },
-          {
-            id: '2',
-            description: 'Standard Delivery',
-            name: 'Delivered on the same day',
-            serviceable: true,
-            shipping_fee: 0, // in paise (0 = ₹0)
-            cod: false,
-            cod_fee: 0, // in paise (0 = ₹0)
-          }
         ],
-      }
+      },
     ],
   }
 
-  // Try to parse request, but always return a valid response
-  let body: any = {}
   try {
-    body = await request.json()
+    // Parse request body
+    const body = await request.json()
     console.log('Shipping Info API Request:', JSON.stringify(body, null, 2))
-  } catch (parseError) {
-    // If parsing fails, just use empty body and return default response
-    console.warn('Shipping Info API: Failed to parse request body, using default response')
-  }
 
-  // Extract addresses from request
-  // Razorpay may send addresses in different formats, so we need to handle both
-  const { addresses, order_id, razorpay_order_id, email, contact } = body || {}
+    // Extract addresses from request
+    const { addresses, order_id, razorpay_order_id, email, contact } = body || {}
 
-  // If addresses are provided, process them; otherwise return default
-  if (addresses && Array.isArray(addresses) && addresses.length > 0) {
-    try {
+    // Log request details for debugging
+    console.log('Shipping Info API - Request Details:', {
+      order_id,
+      razorpay_order_id,
+      email,
+      contact,
+      addressesCount: addresses?.length || 0,
+    })
+
+    // If addresses are provided, process them
+    if (addresses && Array.isArray(addresses) && addresses.length > 0) {
       const responseAddresses = addresses.map((address: any) => {
         // Handle different address formats from Razorpay
-        // Razorpay may send: id as number (0) or string ("0")
-        // country as lowercase ("in") or uppercase ("IN")
-        // May include extra fields like city, state
+        // id can be number (0) or string ("0") - convert to string
+        const addressId = address?.id !== undefined ? String(address.id) : '0'
         
-        const addressId = address?.id !== undefined 
-          ? String(address.id) // Convert to string
-          : '0'
-        
+        // zipcode
         const addressZipcode = address?.zipcode || ''
-        const addressStateCode = address?.state_code || ''
-        const addressCountry = address?.country 
-          ? String(address.country).toUpperCase() // Ensure uppercase
-          : 'IN'
         
+        // state_code (optional)
+        const addressStateCode = address?.state_code || ''
+        
+        // country can be lowercase ("in") or uppercase ("IN") - convert to uppercase
+        const addressCountry = address?.country 
+          ? String(address.country).toUpperCase() 
+          : 'IN'
+
+        // Determine serviceability based on country
+        // Service all addresses in India
+        const isServiceable = addressCountry === 'IN' || addressCountry === ''
+
+        // Return address with shipping methods
         return {
           id: addressId,
           zipcode: addressZipcode,
-          state_code: addressStateCode,
+          ...(addressStateCode && { state_code: addressStateCode }), // Include state_code only if present
           country: addressCountry,
           shipping_methods: [
             {
               id: '1',
               description: 'Free shipping',
               name: 'Delivery within 24 hours',
-              serviceable: true,
+              serviceable: isServiceable,
               shipping_fee: 0, // in paise (0 = ₹0)
-              cod: true,
+              cod: isServiceable, // COD available if serviceable
               cod_fee: 0, // in paise (0 = ₹0)
             },
-            {
-              id: '2',
-              description: 'Standard Delivery',
-              name: 'Delivered on the same day',
-              serviceable: true,
-              shipping_fee: 0, // in paise (0 = ₹0)
-              cod: false,
-              cod_fee: 0, // in paise (0 = ₹0)
-            }
           ],
         }
       })
@@ -156,18 +143,32 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json(
         { addresses: responseAddresses },
-        { status: 200, headers: corsHeaders }
+        { 
+          status: 200, 
+          headers: corsHeaders 
+        }
       )
-    } catch (error) {
-      console.error('Shipping Info API: Error processing addresses, using default response', error)
     }
-  }
 
-  // Always return a valid response (default or processed)
-  return NextResponse.json(defaultResponse, { 
-    status: 200,
-    headers: corsHeaders 
-  })
+    // If no addresses provided, return default response
+    console.warn('Shipping Info API: No addresses provided, returning default response')
+    return NextResponse.json(defaultResponse, { 
+      status: 200,
+      headers: corsHeaders 
+    })
+  } catch (error: any) {
+    // Log error but always return a valid response
+    console.error('Shipping Info API Error:', {
+      message: error?.message || 'Unknown error',
+      error: error?.toString() || 'Unknown',
+    })
+    
+    // Always return a valid response to prevent Magic Checkout from getting stuck
+    return NextResponse.json(defaultResponse, { 
+      status: 200,
+      headers: corsHeaders 
+    })
+  }
 }
 
 // Handle OPTIONS for CORS preflight
@@ -176,12 +177,12 @@ export async function OPTIONS() {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Max-Age': '86400', // 24 hours
+    'Access-Control-Max-Age': '86400',
   }
   return NextResponse.json({}, { headers: corsHeaders })
 }
 
-// Also support GET for health checks and Razorpay compatibility
+// Also support GET for health checks
 export async function GET(request: NextRequest) {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -190,49 +191,6 @@ export async function GET(request: NextRequest) {
     'Access-Control-Max-Age': '86400',
   }
 
-  // If Razorpay calls with query parameters, try to extract them
-  const searchParams = request.nextUrl.searchParams
-  const orderId = searchParams.get('order_id')
-  const razorpayOrderId = searchParams.get('razorpay_order_id')
-  
-  // If query parameters are present, return a default serviceable response
-  if (orderId || razorpayOrderId) {
-    return NextResponse.json(
-      {
-        addresses: [
-          {
-            id: '0',
-            zipcode: '',
-            state_code: '',
-            country: 'IN',
-            shipping_methods: [
-              {
-                id: '1',
-                description: 'Free shipping',
-                name: 'Delivery within 24 hours',
-                serviceable: true,
-                shipping_fee: 0, // in paise (0 = ₹0)
-                cod: true,
-                cod_fee: 0, // in paise (0 = ₹0)
-              },
-              {
-                id: '2',
-                description: 'Standard Delivery',
-                name: 'Delivered on the same day',
-                serviceable: true,
-                shipping_fee: 0, // in paise (0 = ₹0)
-                cod: false,
-                cod_fee: 0, // in paise (0 = ₹0)
-              }
-            ],
-          }
-        ],
-      },
-      { headers: corsHeaders }
-    )
-  }
-
-  // Otherwise, return health check response
   return NextResponse.json(
     {
       status: 'ok',
