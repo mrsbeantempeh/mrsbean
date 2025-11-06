@@ -51,33 +51,70 @@ export async function POST(request: NextRequest) {
 
     // CRITICAL: For Magic Checkout, we MUST include line_items_total and line_items
     // Without these, Razorpay defaults to Standard Checkout
+    // Reference: https://razorpay.com/docs/payments/magic-checkout/web/
+    
+    let lineItems: any[] = []
+    let lineItemsTotal = 0
+    
+    if (product) {
+      // Convert prices from rupees to paise
+      const priceInPaise = Math.round((product.price || amount) * 100)
+      const offerPriceInPaise = Math.round((product.offerPrice || product.price || amount) * 100)
+      const taxAmountInPaise = Math.round((product.taxAmount || 0) * 100)
+      const quantity = product.quantity || 1
+      
+      // Calculate line_items_total: sum of (offer_price * quantity) for all items
+      // For single item: offer_price * quantity
+      lineItemsTotal = offerPriceInPaise * quantity
+      
+      // Build line_item according to Razorpay Magic Checkout documentation
+      const lineItem: any = {
+        // Mandatory fields
+        sku: product.sku || `SKU-${Date.now()}`, // Unique product ID (alphanumeric)
+        variant_id: product.variant_id || `VARIANT-${Date.now()}`, // Unique variant ID (alphanumeric)
+        price: priceInPaise, // Original price in paise
+        offer_price: offerPriceInPaise, // Final price after discount in paise
+        tax_amount: taxAmountInPaise, // Tax amount in paise
+        quantity: quantity, // Number of units
+        name: product.name || 'Product', // Product name
+        description: product.description || product.name || 'Product description', // Product description
+        
+        // Optional fields
+        weight: product.weight || 0, // Weight in grams
+        dimensions: product.dimensions ? {
+          length: String(product.dimensions.length || product.length || 0), // Length in centimeters (string)
+          width: String(product.dimensions.width || product.width || 0), // Width in centimeters (string)
+          height: String(product.dimensions.height || product.height || 0), // Height in centimeters (string)
+        } : {
+          length: String(product.length || 0),
+          width: String(product.width || 0),
+          height: String(product.height || 0),
+        },
+        image_url: product.image_url || product.image || '', // Product image URL
+        product_url: product.product_url || '', // Product page URL
+        notes: product.notes || {}, // Additional notes (key-value pairs)
+      }
+      
+      // Optional: other_product_codes (UPC, EAN, UNSPSC)
+      if (product.other_product_codes) {
+        lineItem.other_product_codes = product.other_product_codes
+      }
+      
+      lineItems.push(lineItem)
+    }
+    
+    // Build order options according to Razorpay Magic Checkout documentation
     const options: any = {
-      amount: amountInPaise, // Dynamic cart value in paise
+      // Standard order fields
+      amount: amountInPaise, // Total order amount in paise
       currency,
       receipt: receipt || `receipt_${Date.now()}`,
+      
       // Magic Checkout required parameters
-      line_items_total: amountInPaise, // Total of offer_price for all line items (in paise)
-      line_items: product ? [
-        {
-          sku: product.sku || `SKU-${Date.now()}`, // Unique product ID
-          variant_id: product.variant_id || `VARIANT-${Date.now()}`, // Unique variant ID
-          price: Math.round((product.price || amount) * 100), // Original price in paise
-          offer_price: Math.round((product.offerPrice || product.price || amount) * 100), // Final price after discount in paise
-          tax_amount: Math.round((product.taxAmount || 0) * 100), // Tax amount in paise
-          quantity: product.quantity || 1,
-          name: product.name || 'Product',
-          description: product.description || product.name || 'Product description',
-          weight: product.weight || 0, // Weight in grams
-          dimensions: product.dimensions || {
-            length: product.length || 0,
-            width: product.width || 0,
-            height: product.height || 0,
-          },
-          image_url: product.image_url || product.image || '',
-          product_url: product.product_url || '',
-          notes: product.notes || {},
-        }
-      ] : [],
+      // line_items_total: Total of offer_price for all line items (in paise)
+      // This is CRITICAL - without this, Razorpay defaults to Standard Checkout
+      line_items_total: lineItemsTotal || amountInPaise,
+      line_items: lineItems, // Array of line items
     }
 
     // Add notes for Magic Checkout (customer details, address, etc.)

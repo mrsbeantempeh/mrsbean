@@ -59,21 +59,49 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
+    // Log the request for debugging
+    console.log('Shipping Info API Request:', JSON.stringify(body, null, 2))
+
     // Extract request parameters
     const { order_id, razorpay_order_id, email, contact, addresses } = body
 
-    // Validate required parameters
-    if (!order_id || !razorpay_order_id || !email || !contact) {
-      return NextResponse.json(
-        { error: 'Missing required parameters: order_id, razorpay_order_id, email, contact are mandatory' },
-        { status: 400, headers: corsHeaders }
-      )
-    }
-
+    // Validate required parameters - be lenient, don't fail if some are missing
+    // Razorpay may send requests with different formats
     if (!addresses || !Array.isArray(addresses) || addresses.length === 0) {
+      console.warn('Shipping Info API: No addresses provided, returning default response')
+      // Return a default serviceable response instead of error
       return NextResponse.json(
-        { error: 'Addresses array is required' },
-        { status: 400, headers: corsHeaders }
+        {
+          addresses: [
+            {
+              id: '0',
+              zipcode: '',
+              state_code: '',
+              country: 'IN',
+              shipping_methods: [
+                {
+                  id: '1',
+                  description: 'Free shipping',
+                  name: 'Delivery within 5 days',
+                  serviceable: true,
+                  shipping_fee: 0,
+                  cod: true,
+                  cod_fee: 0,
+                },
+                {
+                  id: '2',
+                  description: 'Standard Delivery',
+                  name: 'Delivered on the same day',
+                  serviceable: true,
+                  shipping_fee: 0,
+                  cod: false,
+                  cod_fee: 0,
+                }
+              ],
+            }
+          ],
+        },
+        { headers: corsHeaders }
       )
     }
 
@@ -82,22 +110,26 @@ export async function POST(request: NextRequest) {
     const responseAddresses = addresses.map((address: any) => {
       const { id, zipcode, state_code, country } = address
 
-      // Validate required address fields
-      if (!id || !zipcode || !country) {
-        throw new Error('Address must have id, zipcode, and country')
-      }
+      // Validate required address fields - be lenient with validation
+      // Razorpay may send addresses with missing fields, we should handle gracefully
+      const addressId = id || '0'
+      const addressZipcode = zipcode || ''
+      const addressCountry = (country || '').toUpperCase()
+      const addressStateCode = state_code || ''
 
-      // Service all addresses in India (country code 'IN')
-      // You can customize this logic if you want to restrict to specific areas
-      const isIndia = country === 'IN' || !country || country === ''
+      // Service all addresses - default to serviceable for all
+      // Check if country is India (IN) or if country is missing/empty (default to India)
+      const isIndia = addressCountry === 'IN' || addressCountry === '' || !addressCountry
       
-      // Service all pin codes - set to true for all addresses
-      const serviceable = isIndia
+      // Service all pin codes - ALWAYS return serviceable: true
+      // This ensures Magic Checkout doesn't get stuck
+      const serviceable = true // Always serviceable for all pincodes
 
-      // Define shipping methods
+      // Define shipping methods - ALWAYS return shipping methods
       // Method 1: Free shipping with COD (5 days delivery)
       // Method 2: Standard delivery without COD (same day delivery)
-      const shipping_methods = serviceable ? [
+      // Always return shipping methods to ensure checkout proceeds
+      const shipping_methods = [
         {
           id: '1',
           description: 'Free shipping',
@@ -116,16 +148,19 @@ export async function POST(request: NextRequest) {
           cod: false, // COD not available for same day delivery
           cod_fee: 0, // No COD fee in paise (₹0)
         }
-      ] : []
+      ]
 
       return {
-        id: id,
-        zipcode: zipcode,
-        state_code: state_code || '', // Include state_code in response
-        country: country,
-        shipping_methods: shipping_methods,
+        id: addressId,
+        zipcode: addressZipcode,
+        state_code: addressStateCode, // Include state_code in response
+        country: addressCountry || 'IN', // Default to IN if missing
+        shipping_methods: shipping_methods, // Always return shipping methods
       }
     })
+
+    // Log the response for debugging
+    console.log('Shipping Info API Response:', JSON.stringify({ addresses: responseAddresses }, null, 2))
 
     // Return response in the format expected by Razorpay Magic Checkout
     // Add CORS headers to allow Razorpay to access this endpoint

@@ -31,6 +31,7 @@ interface RazorpayOptions {
   customerEmail?: string
   customerContact?: string
   customerId?: string // Razorpay customer ID for Magic Checkout
+  notes?: Record<string, string> // Additional notes (max 15 key-value pairs, 256 chars each)
   onSuccess: (paymentId: string, orderId: string, signature: string) => void
   onError: (error: any) => void
 }
@@ -39,37 +40,52 @@ export const openRazorpayCheckout = async (options: RazorpayOptions) => {
   await loadRazorpayScript()
 
   const razorpayOptions: any = {
+    // Mandatory fields for Magic Checkout
     key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
+    one_click_checkout: true, // Mandatory: true for Magic Checkout
+    name: 'Mrs Bean', // Mandatory: Business name
+    order_id: options.orderId, // Mandatory: Order ID from Orders API
+    
+    // Standard Razorpay options (required for checkout)
     amount: options.amount, // Amount in paise (already converted)
     currency: 'INR',
-    name: 'Mrs Bean',
     description: options.productName,
-    order_id: options.orderId,
-    // Enable Magic Checkout
-    one_click_checkout: true,
-    // Show coupons (if configured in Razorpay Dashboard)
-    show_coupons: true,
+    
+    // Optional Magic Checkout options
+    show_coupons: true, // Optional: Show coupons (default: true)
+    
+    // Prefill customer details (optional but recommended for better conversion)
+    prefill: {
+      name: options.customerName || '',
+      email: options.customerEmail || '',
+      contact: options.customerContact || '', // Format: +(country code)(phone number)
+    },
+    
+    // Notes (optional): Store additional information (max 15 key-value pairs, 256 chars each)
+    ...(options.notes && { notes: options.notes }),
+    
+    // Customer ID for returning customers (Magic Checkout feature)
+    ...(options.customerId && { customer_id: options.customerId }),
+    
+    // Theme (optional): Customize appearance
+    theme: {
+      color: '#102a43', // Navy blue theme
+    },
+    
+    // Modal (optional): Handle modal behavior
+    modal: {
+      ondismiss: function () {
+        options.onError({ message: 'Payment cancelled by user' })
+      },
+    },
+    
+    // Handler (for JS handler approach - alternative to callback_url + redirect)
     handler: function (response: any) {
       options.onSuccess(
         response.razorpay_payment_id,
         response.razorpay_order_id,
         response.razorpay_signature
       )
-    },
-    prefill: {
-      name: options.customerName || '',
-      email: options.customerEmail || '',
-      contact: options.customerContact || '',
-    },
-    // Add customer_id for returning customers (Magic Checkout feature)
-    ...(options.customerId && { customer_id: options.customerId }),
-    theme: {
-      color: '#102a43', // Navy blue theme
-    },
-    modal: {
-      ondismiss: function () {
-        options.onError({ message: 'Payment cancelled by user' })
-      },
     },
   }
 

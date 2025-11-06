@@ -97,23 +97,26 @@ export default function ProductsPage() {
           currency: 'INR',
           receipt: `receipt_${Date.now()}_qty_${quantity}`,
           product: {
-            sku: `SKU-${product.name.replace(/\s+/g, '-').toUpperCase()}`,
-            variant_id: `VARIANT-${Date.now()}`,
-            price: product.price,
-            offerPrice: product.price,
-            taxAmount: 0,
-            quantity: quantity,
-            name: product.name,
-            description: `${product.name} - ${product.weight}`,
-            weight: 200,
+            // Mandatory fields for Magic Checkout
+            sku: `SKU-${product.name.replace(/\s+/g, '-').toUpperCase()}`, // Unique product ID
+            variant_id: `VARIANT-${Date.now()}`, // Unique variant ID
+            price: product.price, // Original price in rupees (will be converted to paise)
+            offerPrice: product.price, // Final price after discount in rupees
+            taxAmount: 0, // Tax amount in rupees (will be converted to paise)
+            quantity: quantity, // Number of units
+            name: product.name, // Product name
+            description: `${product.name} - ${product.weight || 'Premium Coffee'}`, // Product description
+            
+            // Optional fields
+            weight: product.weight || 200, // Weight in grams
             dimensions: {
-              length: 10,
-              width: 10,
-              height: 5,
+              length: 10, // Length in centimeters (will be converted to string)
+              width: 10, // Width in centimeters (will be converted to string)
+              height: 5, // Height in centimeters (will be converted to string)
             },
-            image: product.image,
-            image_url: product.image,
-            product_url: typeof window !== 'undefined' ? window.location.origin + '/products' : '',
+            image: product.image, // Product image
+            image_url: product.image, // Product image URL
+            product_url: typeof window !== 'undefined' ? `${window.location.origin}/products` : '', // Product page URL
           },
         }),
       })
