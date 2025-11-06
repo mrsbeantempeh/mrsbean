@@ -53,11 +53,19 @@ export async function POST(request: NextRequest) {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400', // 24 hours
   }
 
   try {
-    const body = await request.json()
+    // Parse request body with timeout handling
+    let body: any = {}
+    try {
+      body = await request.json()
+    } catch (parseError) {
+      console.warn('Shipping Info API: Failed to parse request body, using empty object')
+      body = {}
+    }
 
     // Log the request for debugging
     console.log('Shipping Info API Request:', JSON.stringify(body, null, 2))
@@ -173,21 +181,23 @@ export async function POST(request: NextRequest) {
       }
     )
   } catch (error: any) {
-    console.error('Shipping info API error:', error)
+    console.error('Shipping info API error:', {
+      message: error.message,
+      stack: error.stack,
+      error: JSON.stringify(error, null, 2),
+    })
     
-    // Return a default response that allows checkout to proceed
+    // ALWAYS return a valid response, even on error
     // This prevents Magic Checkout from getting stuck
-    try {
-      const body = await request.json().catch(() => ({}))
-      const { addresses } = body
-
-      return NextResponse.json(
-        {
-          addresses: (addresses || []).map((address: any) => ({
-            id: address.id || '0',
-            zipcode: address.zipcode || '',
-            state_code: address.state_code || '',
-            country: address.country || 'IN',
+    // Return a default serviceable response for all addresses
+    return NextResponse.json(
+      {
+        addresses: [
+          {
+            id: '0',
+            zipcode: '',
+            state_code: '',
+            country: 'IN',
             shipping_methods: [
               {
                 id: '1',
@@ -208,46 +218,14 @@ export async function POST(request: NextRequest) {
                 cod_fee: 0,
               }
             ],
-          })),
-        },
-        { headers: corsHeaders }
-      )
-    } catch (fallbackError) {
-      // If we can't parse the request, return a minimal valid response
-      return NextResponse.json(
-        {
-          addresses: [
-            {
-              id: '0',
-              zipcode: '000000',
-              state_code: '',
-              country: 'IN',
-              shipping_methods: [
-                {
-                  id: '1',
-                  description: 'Free shipping',
-                  name: 'Delivery within 5 days',
-                  serviceable: true,
-                  shipping_fee: 0,
-                  cod: true,
-                  cod_fee: 0,
-                },
-                {
-                  id: '2',
-                  description: 'Standard Delivery',
-                  name: 'Delivered on the same day',
-                  serviceable: true,
-                  shipping_fee: 0,
-                  cod: false,
-                  cod_fee: 0,
-                }
-              ],
-            }
-          ],
-        },
-        { headers: corsHeaders }
-      )
-    }
+          }
+        ],
+      },
+      { 
+        status: 200, // Always return 200, even on error, to prevent checkout from getting stuck
+        headers: corsHeaders 
+      }
+    )
   }
 }
 
@@ -265,8 +243,58 @@ export async function OPTIONS() {
   )
 }
 
-// Also support GET for health checks
-export async function GET() {
+// Also support GET for health checks and Razorpay compatibility
+export async function GET(request: NextRequest) {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400',
+  }
+
+  // If Razorpay calls with query parameters, try to extract them
+  const searchParams = request.nextUrl.searchParams
+  const orderId = searchParams.get('order_id')
+  const razorpayOrderId = searchParams.get('razorpay_order_id')
+  
+  // If query parameters are present, return a default serviceable response
+  if (orderId || razorpayOrderId) {
+    return NextResponse.json(
+      {
+        addresses: [
+          {
+            id: '0',
+            zipcode: '',
+            state_code: '',
+            country: 'IN',
+            shipping_methods: [
+              {
+                id: '1',
+                description: 'Free shipping',
+                name: 'Delivery within 5 days',
+                serviceable: true,
+                shipping_fee: 0,
+                cod: true,
+                cod_fee: 0,
+              },
+              {
+                id: '2',
+                description: 'Standard Delivery',
+                name: 'Delivered on the same day',
+                serviceable: true,
+                shipping_fee: 0,
+                cod: false,
+                cod_fee: 0,
+              }
+            ],
+          }
+        ],
+      },
+      { headers: corsHeaders }
+    )
+  }
+
+  // Otherwise, return health check response
   return NextResponse.json(
     {
       status: 'ok',
@@ -275,12 +303,6 @@ export async function GET() {
       method: 'POST',
       description: 'Returns shipping serviceability, COD availability, and fees for given addresses',
     },
-    {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    }
+    { headers: corsHeaders }
   )
 }
