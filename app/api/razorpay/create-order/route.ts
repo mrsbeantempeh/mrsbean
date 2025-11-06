@@ -52,12 +52,31 @@ export async function POST(request: NextRequest) {
 
     // Convert dynamic cart value from rupees to paise for Razorpay
     // Razorpay requires amount in the smallest currency unit (paise for INR)
-    const amountInPaise = Math.round(amount * 100)
+    // Must be an integer, not a float
+    const amountInPaise = Math.round(Number(amount) * 100)
+    
+    // Validate that amount is a valid number
+    if (isNaN(amountInPaise) || !isFinite(amountInPaise)) {
+      console.error('Invalid amount conversion:', { amount, amountInPaise })
+      return NextResponse.json(
+        { error: 'Invalid amount. Amount must be a valid number.', details: `Received amount: ${amount}` },
+        { status: 400 }
+      )
+    }
 
     // Ensure minimum amount (Razorpay minimum is 1 rupee = 100 paise)
     if (amountInPaise < 100) {
       return NextResponse.json(
         { error: 'Minimum order amount is ₹1' },
+        { status: 400 }
+      )
+    }
+    
+    // Ensure amount is an integer (Razorpay requirement)
+    if (!Number.isInteger(amountInPaise)) {
+      console.error('Amount is not an integer:', { amount, amountInPaise })
+      return NextResponse.json(
+        { error: 'Amount must be an integer (in paise).', details: `Calculated amount: ${amountInPaise}` },
         { status: 400 }
       )
     }
@@ -71,10 +90,29 @@ export async function POST(request: NextRequest) {
     
     if (product) {
       // Convert prices from rupees to paise
-      const priceInPaise = Math.round((product.price || amount) * 100)
-      const offerPriceInPaise = Math.round((product.offerPrice || product.price || amount) * 100)
-      const taxAmountInPaise = Math.round((product.taxAmount || 0) * 100)
-      const quantity = product.quantity || 1
+      // Must be integers, not floats
+      const priceInPaise = Math.round(Number(product.price || amount) * 100)
+      const offerPriceInPaise = Math.round(Number(product.offerPrice || product.price || amount) * 100)
+      const taxAmountInPaise = Math.round(Number(product.taxAmount || 0) * 100)
+      const quantity = Number(product.quantity || 1)
+      
+      // Validate all amounts are integers
+      if (!Number.isInteger(priceInPaise) || !Number.isInteger(offerPriceInPaise) || !Number.isInteger(taxAmountInPaise) || !Number.isInteger(quantity)) {
+        console.error('Invalid price conversion:', {
+          originalPrice: product.price,
+          originalOfferPrice: product.offerPrice,
+          originalTaxAmount: product.taxAmount,
+          originalQuantity: product.quantity,
+          priceInPaise,
+          offerPriceInPaise,
+          taxAmountInPaise,
+          quantity,
+        })
+        return NextResponse.json(
+          { error: 'Invalid product prices. All prices must be valid numbers.', details: 'Prices must be integers in paise' },
+          { status: 400 }
+        )
+      }
       
       // Calculate line_items_total: sum of (offer_price * quantity) for all items
       // For single item: offer_price * quantity
