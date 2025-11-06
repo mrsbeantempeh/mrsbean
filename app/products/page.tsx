@@ -122,27 +122,51 @@ export default function ProductsPage() {
       })
 
       if (!createOrderResponse.ok) {
+        // Clone the response so we can read it multiple times
+        const responseClone = createOrderResponse.clone()
+        
         // Get the actual error message from the API
         let errorData: any = {}
+        let errorText = ''
+        
         try {
+          // Try to parse as JSON first
           errorData = await createOrderResponse.json()
         } catch (e) {
-          // If response is not JSON, get text
-          const text = await createOrderResponse.text().catch(() => '')
-          errorData = { error: text || 'Unknown error' }
+          // If not JSON, try to get as text
+          try {
+            errorText = await responseClone.text()
+            // Try to parse the text as JSON
+            try {
+              errorData = JSON.parse(errorText)
+            } catch (parseError) {
+              // If not JSON, use text as error
+              errorData = { error: errorText || 'Unknown error' }
+            }
+          } catch (textError) {
+            errorData = { error: `HTTP ${createOrderResponse.status}: ${createOrderResponse.statusText}` }
+          }
         }
         
-        const errorMessage = errorData.error || errorData.details || `Failed to create payment order (${createOrderResponse.status})`
+        // Extract error message with priority: error > details > status text
+        const errorMessage = errorData.error || errorData.details || errorText || `Failed to create payment order (HTTP ${createOrderResponse.status})`
+        
         console.error('Order creation failed:', {
           status: createOrderResponse.status,
           statusText: createOrderResponse.statusText,
-          error: errorData,
+          errorData: errorData,
+          errorText: errorText,
+          fullError: errorData,
           requestBody: {
             amount: totalPrice,
             quantity: quantity,
             productName: product.name,
+            productPrice: product.price,
           },
         })
+        
+        // Show user-friendly error message
+        alert(`Order creation failed: ${errorMessage}`)
         throw new Error(errorMessage)
       }
 

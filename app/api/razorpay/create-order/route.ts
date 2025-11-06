@@ -180,11 +180,23 @@ export async function POST(request: NextRequest) {
       stack: error.stack,
       code: error.code,
       statusCode: error.statusCode,
+      description: error.description,
+      field: error.field,
+      source: error.source,
+      step: error.step,
+      reason: error.reason,
     })
+    
+    // Return detailed error information
     return NextResponse.json(
       { 
-        error: error.message || 'Failed to create order',
+        error: error.message || error.description || 'Failed to create order',
         details: error.code || 'Unknown error',
+        field: error.field || null,
+        source: error.source || null,
+        step: error.step || null,
+        reason: error.reason || null,
+        statusCode: error.statusCode || 500,
       },
       { status: error.statusCode || 500 }
     )
