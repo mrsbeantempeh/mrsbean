@@ -6,7 +6,12 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
-import CheckoutModal from '@/components/CheckoutModal'
+import dynamic from 'next/dynamic'
+
+// Dynamically import MagicCheckout to avoid SSR issues
+const MagicCheckout = dynamic(() => import('@/components/MagicCheckout'), {
+  ssr: false,
+})
 
 const product = {
   id: 1,
@@ -73,7 +78,7 @@ export default function ProductsPage() {
   const { user, profile, addOrder, addTransaction } = useAuth()
   const [loading, setLoading] = useState(false)
   const [quantity, setQuantity] = useState(1)
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
+  const [showMagicCheckout, setShowMagicCheckout] = useState(false)
 
   const totalPrice = product.price * quantity
 
@@ -84,8 +89,8 @@ export default function ProductsPage() {
   }
 
   const handleBuyNow = () => {
-    // Open checkout modal (works for both logged-in and guest users)
-    setIsCheckoutOpen(true)
+    // Open Magic Checkout directly (Razorpay handles everything)
+    setShowMagicCheckout(true)
   }
 
   // Generate JSON-LD microdata for Facebook/Meta catalog
@@ -500,13 +505,13 @@ export default function ProductsPage() {
         </motion.section>
       </div>
 
-      {/* Checkout Modal */}
-      <CheckoutModal
-        isOpen={isCheckoutOpen}
-        onClose={() => setIsCheckoutOpen(false)}
-        product={product}
-        quantity={quantity}
-      />
+      {/* Magic Checkout - Opens directly when Buy Now is clicked */}
+      {showMagicCheckout && (
+        <MagicCheckout
+          product={product}
+          quantity={quantity}
+        />
+      )}
     </div>
   )
 }

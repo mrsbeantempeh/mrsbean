@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       key_secret: keySecret,
     })
 
-    const { amount, currency = 'INR', receipt } = await request.json()
+    const { amount, currency = 'INR', receipt, notes, product } = await request.json()
 
     // Validate dynamic cart value
     if (!amount || amount <= 0) {
@@ -49,10 +49,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const options = {
+    // CRITICAL: For Magic Checkout, we MUST include line_items_total and line_items
+    // Without these, Razorpay defaults to Standard Checkout
+    const options: any = {
       amount: amountInPaise, // Dynamic cart value in paise
       currency,
       receipt: receipt || `receipt_${Date.now()}`,
+      // Magic Checkout required parameters
+      line_items_total: amountInPaise, // Total of offer_price for all line items (in paise)
+      line_items: product ? [
+        {
+          sku: product.sku || `SKU-${Date.now()}`, // Unique product ID
+          variant_id: product.variant_id || `VARIANT-${Date.now()}`, // Unique variant ID
+          price: Math.round((product.price || amount) * 100), // Original price in paise
+          offer_price: Math.round((product.offerPrice || product.price || amount) * 100), // Final price after discount in paise
+          tax_amount: Math.round((product.taxAmount || 0) * 100), // Tax amount in paise
+          quantity: product.quantity || 1,
+          name: product.name || 'Product',
+          description: product.description || product.name || 'Product description',
+          weight: product.weight || 0, // Weight in grams
+          dimensions: product.dimensions || {
+            length: product.length || 0,
+            width: product.width || 0,
+            height: product.height || 0,
+          },
+          image_url: product.image_url || product.image || '',
+          product_url: product.product_url || '',
+          notes: product.notes || {},
+        }
+      ] : [],
+    }
+
+    // Add notes for Magic Checkout (customer details, address, etc.)
+    if (notes && Object.keys(notes).length > 0) {
+      options.notes = notes
     }
 
     const order = await razorpay.orders.create(options)

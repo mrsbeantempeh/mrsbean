@@ -46,6 +46,41 @@ Before going live:
 3. Ensure `RAZORPAY_KEY_SECRET` is set in your production environment
 4. Test the complete payment flow end-to-end
 
+## Magic Checkout
+
+Mrs Bean uses Razorpay Magic Checkout for a faster, more seamless checkout experience. Magic Checkout allows customers to:
+- Save their payment details for faster checkout next time
+- Use multiple payment methods (Card, UPI, Netbanking, Wallets, EMI)
+- Enjoy a streamlined checkout experience
+
+### Features Enabled:
+- ✅ Payment method saving
+- ✅ Multiple payment methods (Card, UPI, Netbanking, Wallets, EMI)
+- ✅ Faster checkout for returning customers
+
+### Activating Magic Checkout:
+
+Magic Checkout is already integrated in the code. To activate it on your Razorpay account:
+
+1. **Request Access:**
+   - Fill out the [Magic Checkout activation form](https://razorpay.com/docs/payments/magic-checkout/)
+   - Provide your Razorpay Merchant ID (MID), email, and mobile number
+   - Specify your platform (Custom Website) and payment methods you want to offer
+   - Razorpay will process your request (may take up to 48 working hours)
+
+2. **Verify Activation:**
+   - Once activated, Magic Checkout will automatically work with your existing integration
+   - Test a transaction to verify that payment methods are saved
+   - Returning customers will see their saved payment methods
+
+3. **Benefits:**
+   - Reduced cart abandonment
+   - Faster checkout for returning customers
+   - Better conversion rates
+   - Support for multiple payment methods
+
+**Note:** Magic Checkout works automatically once activated on your Razorpay account. No additional code changes are required.
+
 ## Thank You Page
 
 After successful payment, customers are redirected to `/thank-you` page with:

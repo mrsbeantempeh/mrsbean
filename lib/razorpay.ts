@@ -29,6 +29,7 @@ interface RazorpayOptions {
   customerName?: string
   customerEmail?: string
   customerContact?: string
+  customerId?: string // Razorpay customer ID for Magic Checkout
   onSuccess: (paymentId: string, orderId: string, signature: string) => void
   onError: (error: any) => void
 }
@@ -36,7 +37,7 @@ interface RazorpayOptions {
 export const openRazorpayCheckout = async (options: RazorpayOptions) => {
   await loadRazorpayScript()
 
-  const razorpayOptions = {
+  const razorpayOptions: any = {
     key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
     amount: options.amount, // Amount in paise (already converted)
     currency: 'INR',
@@ -55,6 +56,22 @@ export const openRazorpayCheckout = async (options: RazorpayOptions) => {
       email: options.customerEmail || '',
       contact: options.customerContact || '',
     },
+    // Magic Checkout configuration
+    // Note: Magic Checkout is automatically enabled when activated on your Razorpay account
+    // These options enhance the checkout experience
+    method: {
+      card: true,
+      netbanking: true,
+      wallet: true,
+      upi: true,
+      emi: true,
+    },
+    // Enable save for Magic Checkout - allows customers to save payment methods
+    save: {
+      enabled: true,
+    },
+    // Add customer_id for returning customers (Magic Checkout feature)
+    ...(options.customerId && { customer_id: options.customerId }),
     theme: {
       color: '#102a43', // Navy blue theme
     },

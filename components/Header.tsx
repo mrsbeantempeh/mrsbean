@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
-import { Menu, X, ShoppingBag, User, LogOut } from 'lucide-react'
+import { Menu, X, ShoppingBag, LogOut } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
@@ -135,7 +135,6 @@ export default function Header() {
                       onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                       className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-navy-700 text-white rounded-full font-semibold text-xs sm:text-sm hover:bg-navy-800 transition-colors whitespace-nowrap"
                     >
-                      <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       <span className="hidden xl:inline">{profile?.name || user.email?.split('@')[0] || 'Account'}</span>
                       <span className="xl:hidden">Account</span>
                     </button>
@@ -147,7 +146,6 @@ export default function Header() {
                           onClick={() => setIsUserMenuOpen(false)}
                           className="block px-4 py-2 text-navy-700 hover:bg-navy-50 transition-colors text-sm font-semibold"
                         >
-                          <User className="w-4 h-4 inline mr-2" />
                           My Account
                         </Link>
                         <button
@@ -172,13 +170,6 @@ export default function Header() {
                   </div>
                 ) : (
                   <>
-                    <Link
-                      href="/login"
-                      className="flex items-center justify-center p-2 sm:p-2.5 rounded-full border border-navy-200 hover:border-navy-400 hover:bg-navy-50 transition-all duration-300 flex-shrink-0"
-                      aria-label="Sign In"
-                    >
-                      <User className="w-4 h-4 sm:w-5 sm:h-5 text-navy-700" />
-                    </Link>
                     <Link href="/products" className="flex-shrink-0">
                       <motion.div
                         className="bg-gradient-to-r from-navy-700 to-navy-900 hover:from-navy-600 hover:to-navy-800 text-white px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 rounded-full font-bold text-xs shadow-md hover:shadow-xl transition-all duration-300 flex items-center gap-1.5 sm:gap-2 group cursor-pointer whitespace-nowrap ml-1 sm:ml-2"
@@ -224,7 +215,6 @@ export default function Header() {
                     href="/account"
                     className="bg-gradient-to-r from-navy-700 to-navy-900 hover:from-navy-600 hover:to-navy-800 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-bold text-xs shadow-md hover:shadow-xl transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0"
                   >
-                    <User className="w-3 h-3" />
                     Account
                   </Link>
                 ) : (
@@ -323,7 +313,6 @@ export default function Header() {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="flex items-center justify-center gap-2 font-semibold text-navy-700 hover:text-navy-600 transition-colors py-2 sm:py-2.5 md:py-3 border-b border-navy-100 text-sm sm:text-base"
                 >
-                  <User className="w-4 h-4 sm:w-5 sm:h-5" />
                   Sign In
                 </Link>
                 <Link
