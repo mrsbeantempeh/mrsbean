@@ -32,11 +32,23 @@ function ThankYouContent() {
   const paymentId = searchParams.get('payment') || ''
   const amount = searchParams.get('amount') || '0'
   const quantity = searchParams.get('quantity') || '1'
+  const orderInfoParam = searchParams.get('orderInfo') || ''
   
   const [orderInfo, setOrderInfo] = useState<OrderInfo | null>(null)
 
   useEffect(() => {
-    // Get order info from sessionStorage
+    // First, try to get order info from URL parameter (from callback route)
+    if (orderInfoParam) {
+      try {
+        const decoded = decodeURIComponent(orderInfoParam)
+        setOrderInfo(JSON.parse(decoded))
+        return
+      } catch (error) {
+        console.error('Error parsing order info from URL:', error)
+      }
+    }
+    
+    // Fallback: Get order info from sessionStorage (for backward compatibility)
     if (typeof window !== 'undefined') {
       const stored = sessionStorage.getItem('orderInfo')
       if (stored) {
@@ -49,7 +61,7 @@ function ThankYouContent() {
         }
       }
     }
-  }, [])
+  }, [orderInfoParam])
 
   // Format date for display
   const formatDate = (dateString: string) => {

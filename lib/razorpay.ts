@@ -32,8 +32,11 @@ interface RazorpayOptions {
   customerContact?: string
   customerId?: string // Razorpay customer ID for Magic Checkout
   notes?: Record<string, string> // Additional notes (max 15 key-value pairs, 256 chars each)
-  onSuccess: (paymentId: string, orderId: string, signature: string) => void
-  onError: (error: any) => void
+  // Callback URL approach - Razorpay will redirect to this URL on success/failure
+  callbackUrl?: string // Optional: defaults to /api/razorpay/callback
+  // Handler function approach (alternative to callback URL)
+  onSuccess?: (paymentId: string, orderId: string, signature: string) => void
+  onError?: (error: any) => void
 }
 
 export const openRazorpayCheckout = async (options: RazorpayOptions) => {
@@ -75,24 +78,26 @@ export const openRazorpayCheckout = async (options: RazorpayOptions) => {
     // Modal (optional): Handle modal behavior
     modal: {
       ondismiss: function () {
-        options.onError({ message: 'Payment cancelled by user' })
+        if (options.onError) {
+          options.onError({ message: 'Payment cancelled by user' })
+        }
       },
     },
-    
-    // Handler (for JS handler approach - alternative to callback_url + redirect)
-    handler: function (response: any) {
-      options.onSuccess(
-        response.razorpay_payment_id,
-        response.razorpay_order_id,
-        response.razorpay_signature
-      )
-    },
   }
-
+  
+  // Use callback URL approach (recommended) - Razorpay will redirect to callback URL on success/failure
+  // This matches Razorpay's recommended approach for Magic Checkout
+  const callbackUrl = options.callbackUrl || `${typeof window !== 'undefined' ? window.location.origin : ''}/api/razorpay/callback`
+  razorpayOptions.callback_url = callbackUrl
+  razorpayOptions.redirect = true // Redirect to callback URL after payment
+  
+  // Note: When using callback_url + redirect, we don't use handler function
+  // Razorpay will redirect to callback_url on success/failure
+  
   const razorpay = new window.Razorpay(razorpayOptions)
-  razorpay.on('payment.failed', function (response: any) {
-    options.onError(response.error || { message: 'Payment failed' })
-  })
+  
+  // Note: With callback_url + redirect, we don't need payment.failed handler
+  // Razorpay will redirect to callback_url on failure with error parameters
   
   razorpay.open()
 }
