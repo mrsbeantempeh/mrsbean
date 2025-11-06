@@ -121,9 +121,19 @@ export async function POST(request: NextRequest) {
     })
 
     // Return response in the format expected by Razorpay Magic Checkout
-    return NextResponse.json({
-      addresses: responseAddresses,
-    })
+    // Add CORS headers to allow Razorpay to access this endpoint
+    return NextResponse.json(
+      {
+        addresses: responseAddresses,
+      },
+      {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        },
+      }
+    )
   } catch (error: any) {
     console.error('Shipping info API error:', error)
     
@@ -197,13 +207,36 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Handle OPTIONS for CORS preflight
+export async function OPTIONS() {
+  return NextResponse.json(
+    {},
+    {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    }
+  )
+}
+
 // Also support GET for health checks
 export async function GET() {
-  return NextResponse.json({
-    status: 'ok',
-    message: 'Shipping info API is active',
-    endpoint: '/api/razorpay/shipping-info',
-    method: 'POST',
-    description: 'Returns shipping serviceability, COD availability, and fees for given addresses',
-  })
+  return NextResponse.json(
+    {
+      status: 'ok',
+      message: 'Shipping info API is active',
+      endpoint: '/api/razorpay/shipping-info',
+      method: 'POST',
+      description: 'Returns shipping serviceability, COD availability, and fees for given addresses',
+    },
+    {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    }
+  )
 }
