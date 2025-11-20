@@ -30,7 +30,20 @@ export async function POST(request: NextRequest) {
       key_secret: keySecret,
     })
 
-    const body = await request.json()
+    let body: any = {}
+    try {
+      body = await request.json()
+    } catch (error: any) {
+      console.error('Invalid JSON in request body:', error)
+      return NextResponse.json(
+        { 
+          error: 'Invalid request body. Expected JSON format.',
+          details: error.message || 'JSON parse error'
+        },
+        { status: 400 }
+      )
+    }
+    
     const { amount, currency = 'INR', receipt, notes, product } = body
 
     // Log the request for debugging
