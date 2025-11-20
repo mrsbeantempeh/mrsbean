@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { IndianRupee, Leaf, Heart, Dumbbell, ChefHat, Shield, Award, Truck, Star, CheckCircle, Plus, Minus } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
@@ -83,6 +83,10 @@ export default function ProductsPage() {
 
   const totalPrice = product.price * quantity
 
+  useEffect(() => {
+    console.log('showCheckoutForm changed to:', showCheckoutForm)
+  }, [showCheckoutForm])
+
   const handleQuantityChange = (newQuantity: number) => {
     if (newQuantity >= 1 && newQuantity <= 20) {
       setQuantity(newQuantity)
@@ -90,11 +94,19 @@ export default function ProductsPage() {
   }
 
   const handleBuyNow = () => {
+    console.log('Buy Now button clicked')
     // Show checkout form first
     setShowCheckoutForm(true)
+    console.log('showCheckoutForm set to:', true)
   }
 
   const handleCheckoutSubmit = async (formData: { name: string; phone: string; email: string; address: string; paymentMethod: 'cod' | 'pay_now' }) => {
+    console.log('✅ Checkout form submitted:', {
+      paymentMethod: formData.paymentMethod,
+      name: formData.name,
+      phone: formData.phone,
+    })
+    
     setShowCheckoutForm(false)
     setLoading(true)
 
@@ -103,6 +115,8 @@ export default function ProductsPage() {
       const orderId = `ORDER-${Date.now()}`
       const paymentMethod = formData.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Razorpay'
       const orderStatus = formData.paymentMethod === 'cod' ? 'confirmed' : 'pending'
+      
+      console.log('📦 Creating order:', { orderId, paymentMethod, orderStatus })
       
       try {
         if (user) {
@@ -147,6 +161,7 @@ export default function ProductsPage() {
 
       // If Cash on Delivery, skip payment and redirect to thank-you page
       if (formData.paymentMethod === 'cod') {
+        console.log('💰 COD selected - skipping Razorpay, redirecting to thank-you page')
         const orderInfo = {
           orderId,
           paymentId: null,
@@ -170,6 +185,7 @@ export default function ProductsPage() {
       }
 
       // Step 2: Create Razorpay order (Standard Checkout)
+      console.log('💳 Pay Now selected - creating Razorpay order...')
       const createOrderResponse = await fetch('/api/razorpay/create-order', {
         method: 'POST',
         headers: {
@@ -281,34 +297,49 @@ export default function ProductsPage() {
         ? formData.phone 
         : `+91${formData.phone.replace(/[^0-9]/g, '')}`
       
-      await openRazorpayCheckout({
-        amount: razorpayOrder.amount, // Amount in paise
-        productName: `${quantity}x ${product.name} (₹${totalPrice})`,
+      console.log('🚀 Opening Razorpay checkout:', {
         orderId: razorpayOrder.id,
+        amount: razorpayOrder.amount,
         customerName: formData.name,
-        customerEmail: formData.email || undefined,
-        customerContact: formattedPhone,
-        notes: {
-          order_id: orderId,
-          product_name: product.name,
-          product_weight: product.weight,
-          product_price: product.price.toString(),
-          quantity: quantity.toString(),
-          total_amount: totalPrice.toString(),
-          customer_name: formData.name,
-          customer_phone: formData.phone,
-          customer_email: formData.email || '',
-          address: formData.address,
-        },
-        // Callback URL approach - Razorpay will redirect to /api/razorpay/callback on success/failure
-        // The callback route handles payment verification, transaction creation, and redirects to thank-you page
+        customerPhone: formattedPhone,
       })
       
-      // Note: With callback URL approach, we don't need onSuccess/onError handlers
-      // Razorpay will redirect to /api/razorpay/callback which handles everything
-      // The loading state will be reset when the page redirects
+      try {
+        await openRazorpayCheckout({
+          amount: razorpayOrder.amount, // Amount in paise
+          productName: `${quantity}x ${product.name} (₹${totalPrice})`,
+          orderId: razorpayOrder.id,
+          customerName: formData.name,
+          customerEmail: formData.email || undefined,
+          customerContact: formattedPhone,
+          notes: {
+            order_id: orderId,
+            product_name: product.name,
+            product_weight: product.weight,
+            product_price: product.price.toString(),
+            quantity: quantity.toString(),
+            total_amount: totalPrice.toString(),
+            customer_name: formData.name,
+            customer_phone: formData.phone,
+            customer_email: formData.email || '',
+            address: formData.address,
+          },
+          // Callback URL approach - Razorpay will redirect to /api/razorpay/callback on success/failure
+          // The callback route handles payment verification, transaction creation, and redirects to thank-you page
+        })
+        
+        console.log('✅ Razorpay checkout opened successfully')
+        // Note: With callback URL approach, we don't need onSuccess/onError handlers
+        // Razorpay will redirect to /api/razorpay/callback which handles everything
+        // The loading state will be reset when the page redirects
+      } catch (razorpayError: any) {
+        console.error('❌ Error opening Razorpay checkout:', razorpayError)
+        alert(`Failed to open payment gateway: ${razorpayError.message || 'Unknown error'}. Please try again.`)
+        setLoading(false)
+        return
+      }
     } catch (error: any) {
-      console.error('Error processing order:', error)
+      console.error('❌ Error processing order:', error)
       alert(error.message || 'Failed to process order. Please try again.')
       setLoading(false)
     }
@@ -496,6 +527,7 @@ export default function ProductsPage() {
                     </div>
                     
                     <button
+                      type="button"
                       onClick={handleBuyNow}
                       disabled={loading}
                       className="w-full bg-gradient-to-r from-navy-700 to-navy-900 hover:from-navy-600 hover:to-navy-800 text-white px-8 py-5 rounded-full font-bold text-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 shadow-xl hover:shadow-2xl hover:scale-105"
