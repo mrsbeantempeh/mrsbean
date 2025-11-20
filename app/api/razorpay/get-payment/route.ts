@@ -35,6 +35,9 @@ export async function GET(request: NextRequest) {
     // This includes shipping address collected during Magic Checkout
     const payment = await razorpay.payments.fetch(paymentId)
 
+    // Type assertion to access address fields that may exist but aren't in TypeScript types
+    const paymentAny = payment as any
+
     return NextResponse.json({
       id: payment.id,
       amount: payment.amount,
@@ -42,11 +45,11 @@ export async function GET(request: NextRequest) {
       status: payment.status,
       method: payment.method,
       order_id: payment.order_id,
-      // Shipping address from Magic Checkout
+      // Shipping address from Magic Checkout (may be in payment object or notes)
       notes: payment.notes || {},
-      // Address fields from payment (if available)
-      shipping_address: payment.shipping_address || null,
-      billing_address: payment.billing_address || null,
+      // Address fields from payment (if available) - accessed via type assertion
+      shipping_address: paymentAny.shipping_address || paymentAny.shippingAddress || null,
+      billing_address: paymentAny.billing_address || paymentAny.billingAddress || null,
       // Customer details
       contact: payment.contact || null,
       email: payment.email || null,
