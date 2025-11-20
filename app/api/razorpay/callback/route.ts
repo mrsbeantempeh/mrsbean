@@ -295,13 +295,19 @@ export async function GET(request: NextRequest) {
       }
       
       // Prepare order info for thank-you page
+      // Use customer details from order notes (most reliable source)
+      const finalCustomerName = customerNameFromNotes || customerName || 'Customer'
+      const finalCustomerPhone = customerPhoneFromNotes || customerPhone || ''
+      const finalCustomerEmail = customerEmailFromNotes || customerEmail || null
+      const finalDeliveryAddress = addressFromNotes || deliveryAddress || 'Address will be updated'
+      
       const orderInfo = {
         orderId: orderDetails?.notes?.order_id || `ORDER-${razorpay_order_id}`,
         paymentId: razorpay_payment_id,
-        customerName,
-        customerPhone: customerPhone || '',
-        customerEmail,
-        deliveryAddress,
+        customerName: finalCustomerName,
+        customerPhone: finalCustomerPhone,
+        customerEmail: finalCustomerEmail,
+        deliveryAddress: finalDeliveryAddress,
         productName: orderDetails?.notes?.product_name || 'Classic Tempeh',
         productWeight: orderDetails?.notes?.product_weight || '200g',
         productPrice: orderDetails?.notes?.product_price ? parseFloat(orderDetails.notes.product_price) : 125,
@@ -311,6 +317,12 @@ export async function GET(request: NextRequest) {
         orderDate: new Date().toISOString(),
         estimatedDeliveryDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       }
+      
+      console.log('✅ Payment successful, redirecting to thank-you page:', {
+        orderId: orderInfo.orderId,
+        paymentId: razorpay_payment_id,
+        customerName: finalCustomerName,
+      })
       
       // Store order info in a way that thank-you page can access
       // We'll pass it via query parameters (URL-safe)
