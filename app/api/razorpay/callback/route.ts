@@ -22,38 +22,139 @@ import { createClient } from '@supabase/supabase-js'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 10
 
-export async function GET(request: NextRequest) {
+async function extractCallbackFields(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   
-  // Extract payment details from query parameters
-  const razorpay_payment_id = searchParams.get('razorpay_payment_id')
-  const razorpay_order_id = searchParams.get('razorpay_order_id')
-  const razorpay_signature = searchParams.get('razorpay_signature')
-  const razorpay_payment_link_id = searchParams.get('razorpay_payment_link_id')
-  const razorpay_payment_link_reference_id = searchParams.get('razorpay_payment_link_reference_id')
-  const razorpay_payment_link_status = searchParams.get('razorpay_payment_link_status')
-  const razorpay_payment_id_entity = searchParams.get('razorpay_payment_id_entity')
+  const baseFields: any = {
+    razorpay_payment_id: searchParams.get('razorpay_payment_id'),
+    razorpay_order_id: searchParams.get('razorpay_order_id'),
+    razorpay_signature: searchParams.get('razorpay_signature'),
+    razorpay_payment_link_id: searchParams.get('razorpay_payment_link_id'),
+    razorpay_payment_link_reference_id: searchParams.get('razorpay_payment_link_reference_id'),
+    razorpay_payment_link_status: searchParams.get('razorpay_payment_link_status'),
+    razorpay_payment_id_entity: searchParams.get('razorpay_payment_id_entity'),
+    errorCode: searchParams.get('error_code'),
+    errorDescription: searchParams.get('error_description') || searchParams.get('error'),
+    errorSource: searchParams.get('error_source'),
+    errorStep: searchParams.get('error_step'),
+    errorReason: searchParams.get('error_reason'),
+    rawBody: null as Record<string, any> | null,
+  }
   
-  // Check if this is a payment success or failure
-  const isSuccess = !!razorpay_payment_id && !!razorpay_order_id && !!razorpay_signature
-  const isFailure = searchParams.get('error') !== null || searchParams.get('error_code') !== null
+  const normalize = (value: FormDataEntryValue | string | null | undefined) => {
+    if (value === undefined || value === null) return null
+    if (typeof value === 'string') return value
+    return value.toString()
+  }
+  
+  const assignIfMissing = (key: keyof typeof baseFields, value: any) => {
+    if (!baseFields[key] && value) {
+      baseFields[key] = value
+    }
+  }
+  
+  if (request.method !== 'GET') {
+    const contentType = request.headers.get('content-type')?.toLowerCase() || ''
+    let bodyData: Record<string, any> = {}
+    
+    try {
+      if (contentType.includes('application/json')) {
+        bodyData = await request.json()
+      } else if (contentType.includes('application/x-www-form-urlencoded')) {
+        const formData = await request.formData()
+        formData.forEach((value, key) => {
+          bodyData[key] = normalize(value)
+        })
+      } else {
+        const textBody = await request.text()
+        if (textBody) {
+          try {
+            bodyData = JSON.parse(textBody)
+          } catch {
+            const urlData = new URLSearchParams(textBody)
+            urlData.forEach((value, key) => {
+              bodyData[key] = value
+            })
+          }
+        }
+      }
+    } catch (error) {
+      console.error('⚠️ Failed to parse callback body:', error)
+    }
+    
+    baseFields.rawBody = bodyData
+    
+    const pick = (field: string) =>
+      bodyData[field] ??
+      bodyData[field.toLowerCase()] ??
+      bodyData[field.toUpperCase()]
+    
+    const pickErrorField = (field: string) =>
+      bodyData[`error[${field}]`] ??
+      bodyData[`error.${field}`] ??
+      bodyData[`error_${field}`] ??
+      bodyData[`error${field}`]
+    
+    assignIfMissing('razorpay_payment_id', pick('razorpay_payment_id'))
+    assignIfMissing('razorpay_order_id', pick('razorpay_order_id'))
+    assignIfMissing('razorpay_signature', pick('razorpay_signature'))
+    assignIfMissing('razorpay_payment_link_id', pick('razorpay_payment_link_id'))
+    assignIfMissing('razorpay_payment_link_reference_id', pick('razorpay_payment_link_reference_id'))
+    assignIfMissing('razorpay_payment_link_status', pick('razorpay_payment_link_status'))
+    assignIfMissing('razorpay_payment_id_entity', pick('razorpay_payment_id_entity'))
+    assignIfMissing('errorCode', pick('error_code') || pickErrorField('code'))
+    assignIfMissing('errorDescription', pick('error_description') || pick('error') || pickErrorField('description'))
+    assignIfMissing('errorSource', pick('error_source') || pickErrorField('source'))
+    assignIfMissing('errorStep', pick('error_step') || pickErrorField('step'))
+    assignIfMissing('errorReason', pick('error_reason') || pickErrorField('reason'))
+  }
+  
+  return {
+    ...baseFields,
+    isSuccess: !!(baseFields.razorpay_payment_id && baseFields.razorpay_order_id && baseFields.razorpay_signature),
+    isFailure: !!(baseFields.errorCode || baseFields.errorDescription || baseFields.errorSource || baseFields.errorStep || baseFields.errorReason),
+  }
+}
+
+export async function GET(request: NextRequest) {
+  return handleCallback(request)
+}
+
+export async function POST(request: NextRequest) {
+  return handleCallback(request)
+}
+
+async function handleCallback(request: NextRequest) {
+  const {
+    razorpay_payment_id,
+    razorpay_order_id,
+    razorpay_signature,
+    razorpay_payment_link_id,
+    razorpay_payment_link_reference_id,
+    razorpay_payment_link_status,
+    razorpay_payment_id_entity,
+    errorCode,
+    errorDescription,
+    errorSource,
+    errorStep,
+    errorReason,
+    isSuccess,
+    isFailure,
+    rawBody,
+  } = await extractCallbackFields(request)
   
   // If payment failed, redirect to products page with error
   if (isFailure) {
-    const errorCode = searchParams.get('error_code') || 'PAYMENT_FAILED'
-    const errorDescription = searchParams.get('error_description') || 'Payment failed. Please try again.'
-    const errorSource = searchParams.get('error_source') || 'customer'
-    const errorStep = searchParams.get('error_step') || 'payment'
-    const errorReason = searchParams.get('error_reason') || 'unknown'
-    const failedOrderId = searchParams.get('razorpay_order_id')
+    const failedOrderId = razorpay_order_id
     
     console.error('Payment failed:', {
-      errorCode,
-      errorDescription,
-      errorSource,
-      errorStep,
-      errorReason,
+      errorCode: errorCode || 'PAYMENT_FAILED',
+      errorDescription: errorDescription || 'Payment failed. Please try again.',
+      errorSource: errorSource || 'customer',
+      errorStep: errorStep || 'payment',
+      errorReason: errorReason || 'unknown',
       razorpay_order_id: failedOrderId,
+      body: rawBody || null,
     })
     
     // Update order status to cancelled if order exists
@@ -86,7 +187,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Redirect to products page with error message
-    const errorMessage = encodeURIComponent(errorDescription)
+    const errorMessage = encodeURIComponent(errorDescription || 'Payment failed. Please try again.')
     return NextResponse.redirect(new URL(`/products?error=${errorMessage}`, request.url))
   }
   
@@ -496,7 +597,10 @@ export async function GET(request: NextRequest) {
   }
   
   // If we reach here, the callback format is unexpected
-  console.warn('Unexpected callback format:', Object.fromEntries(searchParams.entries()))
+  console.warn('Unexpected callback format:', {
+    urlParams: Object.fromEntries(request.nextUrl.searchParams.entries()),
+    body: rawBody || null,
+  })
   return NextResponse.redirect(new URL('/products?error=Unexpected callback format', request.url))
 }
 
