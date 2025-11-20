@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { IndianRupee, Package, CheckCircle, XCircle, Clock, MapPin, Phone, Mail, User } from 'lucide-react'
+import { IndianRupee, Package, Search, X } from 'lucide-react'
 import Link from 'next/link'
 
 interface Order {
@@ -23,13 +23,19 @@ interface Order {
   transaction_status?: 'success' | 'pending' | 'failed' | null
   transaction_id?: string | null
   payment_id?: string | null
+  final_status?: 'Order Packed' | 'Order Shipped' | 'Order Delivered' | null
 }
+
+type PaymentStatus = 'Paid' | 'Cart Abandoned' | 'Payment Failed'
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'delivered' | 'cancelled'>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'all'>('all')
+  const [finalStatusFilter, setFinalStatusFilter] = useState<string>('all')
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchOrders()
@@ -55,57 +61,113 @@ export default function OrdersPage() {
     }
   }
 
-  const filteredOrders = filter === 'all' 
-    ? orders 
-    : orders.filter(order => order.status === filter)
+  // Determine payment status based on order and transaction data
+  const getPaymentStatus = (order: Order): PaymentStatus => {
+    // Paid: transaction success OR COD with confirmed status
+    if (
+      order.transaction_status === 'success' ||
+      (order.payment_method === 'Cash on Delivery' && order.status === 'confirmed')
+    ) {
+      return 'Paid'
+    }
+    
+    // Payment Failed: transaction failed OR cancelled status
+    if (order.transaction_status === 'failed' || order.status === 'cancelled') {
+      return 'Payment Failed'
+    }
+    
+    // Cart Abandoned: pending status with no transaction or pending transaction
+    if (order.status === 'pending' && (!order.transaction_status || order.transaction_status === 'pending')) {
+      return 'Cart Abandoned'
+    }
+    
+    // Default to Cart Abandoned for safety
+    return 'Cart Abandoned'
+  }
 
-  const getStatusColor = (status: string) => {
+  // Filter and search orders
+  const filteredOrders = useMemo(() => {
+    let filtered = orders
+
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(order => 
+        order.order_id.toLowerCase().includes(query) ||
+        order.guest_name?.toLowerCase().includes(query) ||
+        order.guest_email?.toLowerCase().includes(query) ||
+        order.guest_phone?.toLowerCase().includes(query) ||
+        order.address?.toLowerCase().includes(query) ||
+        order.product_name.toLowerCase().includes(query)
+      )
+    }
+
+    // Payment status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(order => getPaymentStatus(order) === statusFilter)
+    }
+
+    // Final status filter
+    if (finalStatusFilter !== 'all') {
+      if (finalStatusFilter === 'none') {
+        filtered = filtered.filter(order => !order.final_status)
+      } else {
+        filtered = filtered.filter(order => order.final_status === finalStatusFilter)
+      }
+    }
+
+    return filtered
+  }, [orders, searchQuery, statusFilter, finalStatusFilter])
+
+  const updateFinalStatus = async (orderId: string, finalStatus: string | null) => {
+    try {
+      setUpdatingOrderId(orderId)
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ final_status: finalStatus }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update order status')
+      }
+
+      // Update local state
+      setOrders(prevOrders =>
+        prevOrders.map(order =>
+          order.order_id === orderId
+            ? { ...order, final_status: finalStatus as any }
+            : order
+        )
+      )
+    } catch (err: any) {
+      console.error('Error updating final status:', err)
+      alert('Failed to update order status. Please try again.')
+    } finally {
+      setUpdatingOrderId(null)
+    }
+  }
+
+  const getPaymentStatusColor = (status: PaymentStatus) => {
     switch (status) {
-      case 'confirmed':
+      case 'Paid':
         return 'bg-green-100 text-green-800 border-green-300'
-      case 'delivered':
-        return 'bg-blue-100 text-blue-800 border-blue-300'
-      case 'cancelled':
+      case 'Payment Failed':
         return 'bg-red-100 text-red-800 border-red-300'
-      case 'pending':
+      case 'Cart Abandoned':
         return 'bg-yellow-100 text-yellow-800 border-yellow-300'
       default:
         return 'bg-gray-100 text-gray-800 border-gray-300'
     }
   }
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'confirmed':
-        return <CheckCircle className="w-4 h-4" />
-      case 'delivered':
-        return <Package className="w-4 h-4" />
-      case 'cancelled':
-        return <XCircle className="w-4 h-4" />
-      case 'pending':
-        return <Clock className="w-4 h-4" />
-      default:
-        return <Clock className="w-4 h-4" />
-    }
-  }
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
-
   const stats = {
     total: orders.length,
-    pending: orders.filter(o => o.status === 'pending').length,
-    confirmed: orders.filter(o => o.status === 'confirmed').length,
-    delivered: orders.filter(o => o.status === 'delivered').length,
-    cancelled: orders.filter(o => o.status === 'cancelled').length,
+    paid: orders.filter(o => getPaymentStatus(o) === 'Paid').length,
+    abandoned: orders.filter(o => getPaymentStatus(o) === 'Cart Abandoned').length,
+    failed: orders.filter(o => getPaymentStatus(o) === 'Payment Failed').length,
   }
 
   return (
@@ -131,48 +193,75 @@ export default function OrdersPage() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             <div className="bg-white rounded-lg p-4 border border-navy-200">
               <div className="text-2xl font-bold text-navy-900">{stats.total}</div>
               <div className="text-sm text-navy-600">Total Orders</div>
             </div>
             <div className="bg-white rounded-lg p-4 border border-navy-200">
-              <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-              <div className="text-sm text-navy-600">Pending</div>
+              <div className="text-2xl font-bold text-green-600">{stats.paid}</div>
+              <div className="text-sm text-navy-600">Paid</div>
             </div>
             <div className="bg-white rounded-lg p-4 border border-navy-200">
-              <div className="text-2xl font-bold text-green-600">{stats.confirmed}</div>
-              <div className="text-sm text-navy-600">Confirmed</div>
+              <div className="text-2xl font-bold text-yellow-600">{stats.abandoned}</div>
+              <div className="text-sm text-navy-600">Abandoned</div>
             </div>
             <div className="bg-white rounded-lg p-4 border border-navy-200">
-              <div className="text-2xl font-bold text-blue-600">{stats.delivered}</div>
-              <div className="text-sm text-navy-600">Delivered</div>
-            </div>
-            <div className="bg-white rounded-lg p-4 border border-navy-200">
-              <div className="text-2xl font-bold text-red-600">{stats.cancelled}</div>
-              <div className="text-sm text-navy-600">Cancelled</div>
+              <div className="text-2xl font-bold text-red-600">{stats.failed}</div>
+              <div className="text-sm text-navy-600">Failed</div>
             </div>
           </div>
 
-          {/* Filter Buttons */}
-          <div className="flex flex-wrap gap-2">
-            {(['all', 'pending', 'confirmed', 'delivered', 'cancelled'] as const).map((status) => (
-              <button
-                key={status}
-                onClick={() => setFilter(status)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  filter === status
-                    ? 'bg-navy-900 text-white'
-                    : 'bg-white text-navy-700 border border-navy-200 hover:bg-navy-50'
-                }`}
-              >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
-              </button>
-            ))}
+          {/* Search and Filters */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-navy-400" />
+              <input
+                type="text"
+                placeholder="Search by Order ID, Name, Email, Phone, Address..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-10 py-2 border border-navy-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-500 focus:border-transparent"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-navy-400 hover:text-navy-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+
+            {/* Payment Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as PaymentStatus | 'all')}
+              className="px-4 py-2 border border-navy-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-500 bg-white"
+            >
+              <option value="all">All Payment Status</option>
+              <option value="Paid">Paid</option>
+              <option value="Cart Abandoned">Cart Abandoned</option>
+              <option value="Payment Failed">Payment Failed</option>
+            </select>
+
+            {/* Final Status Filter */}
+            <select
+              value={finalStatusFilter}
+              onChange={(e) => setFinalStatusFilter(e.target.value)}
+              className="px-4 py-2 border border-navy-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-500 bg-white"
+            >
+              <option value="all">All Final Status</option>
+              <option value="none">No Status</option>
+              <option value="Order Packed">Order Packed</option>
+              <option value="Order Shipped">Order Shipped</option>
+              <option value="Order Delivered">Order Delivered</option>
+            </select>
           </div>
         </motion.div>
 
-        {/* Orders List */}
+        {/* Orders Table */}
         {loading ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin text-4xl">⏳</div>
@@ -194,112 +283,109 @@ export default function OrdersPage() {
             <p className="text-navy-700 text-lg">No orders found</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredOrders.map((order, index) => (
-              <motion.div
-                key={order.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="bg-white rounded-lg border border-navy-200 p-6 hover:shadow-lg transition-shadow"
-              >
-                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                  {/* Order Info */}
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-xl font-bold text-navy-900 mb-1">
-                          {order.product_name}
-                        </h3>
-                        <p className="text-sm text-navy-600">Order ID: {order.order_id}</p>
-                      </div>
-                      <div className={`px-3 py-1 rounded-full border flex items-center gap-2 ${getStatusColor(order.status)}`}>
-                        {getStatusIcon(order.status)}
-                        <span className="text-sm font-medium capitalize">{order.status}</span>
-                      </div>
-                    </div>
-
-                    {/* Customer Info */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                      <div className="flex items-start gap-2">
-                        <User className="w-5 h-5 text-navy-600 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-sm font-semibold text-navy-900">Customer</p>
-                          <p className="text-sm text-navy-700">
-                            {order.guest_name || 'Logged-in User'}
-                          </p>
-                        </div>
-                      </div>
-                      {order.guest_phone && (
-                        <div className="flex items-start gap-2">
-                          <Phone className="w-5 h-5 text-navy-600 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-sm font-semibold text-navy-900">Phone</p>
-                            <p className="text-sm text-navy-700">{order.guest_phone}</p>
+          <div className="bg-white rounded-lg border border-navy-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-navy-50 border-b border-navy-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-navy-900 uppercase tracking-wider">
+                      Order ID
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-navy-900 uppercase tracking-wider">
+                      Name
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-navy-900 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-navy-900 uppercase tracking-wider">
+                      Phone Number
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-navy-900 uppercase tracking-wider">
+                      Address
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-navy-900 uppercase tracking-wider">
+                      Qty
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-navy-900 uppercase tracking-wider">
+                      Total Amount
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-navy-900 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-navy-900 uppercase tracking-wider">
+                      Final Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-navy-200">
+                  {filteredOrders.map((order, index) => {
+                    const paymentStatus = getPaymentStatus(order)
+                    return (
+                      <motion.tr
+                        key={order.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: index * 0.02 }}
+                        className="hover:bg-beige-50 transition-colors"
+                      >
+                        <td className="px-4 py-3 text-sm text-navy-900 font-mono">
+                          {order.order_id}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-navy-700">
+                          {order.guest_name || 'Logged-in User'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-navy-700">
+                          {order.guest_email || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-navy-700">
+                          {order.guest_phone || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-navy-700 max-w-xs">
+                          <div className="truncate" title={order.address || '-'}>
+                            {order.address || '-'}
                           </div>
-                        </div>
-                      )}
-                      {order.guest_email && (
-                        <div className="flex items-start gap-2">
-                          <Mail className="w-5 h-5 text-navy-600 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-sm font-semibold text-navy-900">Email</p>
-                            <p className="text-sm text-navy-700 break-all">{order.guest_email}</p>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-navy-700 text-center">
+                          {order.quantity}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-semibold text-navy-900 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <IndianRupee className="w-4 h-4" />
+                            {order.total}
                           </div>
-                        </div>
-                      )}
-                      {order.address && (
-                        <div className="flex items-start gap-2 sm:col-span-2">
-                          <MapPin className="w-5 h-5 text-navy-600 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-sm font-semibold text-navy-900">Delivery Address</p>
-                            <p className="text-sm text-navy-700">{order.address}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Order Details */}
-                    <div className="flex flex-wrap items-center gap-4 text-sm text-navy-700">
-                      <span>Quantity: <strong>{order.quantity}</strong></span>
-                      <span>Price: <strong>₹{order.price}</strong></span>
-                      <span>Payment: <strong>{order.payment_method}</strong></span>
-                      {order.transaction_status && (
-                        <span className={`px-2 py-1 rounded ${
-                          order.transaction_status === 'success' 
-                            ? 'bg-green-100 text-green-800' 
-                            : order.transaction_status === 'failed'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          Payment: {order.transaction_status}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Total & Date */}
-                  <div className="lg:text-right">
-                    <div className="mb-2">
-                      <div className="text-2xl font-bold text-navy-900 flex items-center gap-1 lg:justify-end">
-                        <IndianRupee className="w-6 h-6" />
-                        {order.total}
-                      </div>
-                      <p className="text-sm text-navy-600 mt-1">{formatDate(order.created_at)}</p>
-                    </div>
-                    {order.payment_id && (
-                      <p className="text-xs text-navy-500 mt-2">
-                        Payment ID: {order.payment_id.slice(0, 12)}...
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPaymentStatusColor(paymentStatus)}`}>
+                            {paymentStatus}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <select
+                            value={order.final_status || ''}
+                            onChange={(e) => updateFinalStatus(order.order_id, e.target.value || null)}
+                            disabled={updatingOrderId === order.order_id}
+                            className="text-xs px-2 py-1 border border-navy-300 rounded focus:outline-none focus:ring-2 focus:ring-navy-500 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <option value="">-</option>
+                            <option value="Order Packed">Order Packed</option>
+                            <option value="Order Shipped">Order Shipped</option>
+                            <option value="Order Delivered">Order Delivered</option>
+                          </select>
+                        </td>
+                      </motion.tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="bg-navy-50 px-4 py-3 border-t border-navy-200">
+              <p className="text-sm text-navy-600 text-center">
+                Showing {filteredOrders.length} of {orders.length} orders
+              </p>
+            </div>
           </div>
         )}
       </div>
     </div>
   )
 }
-
