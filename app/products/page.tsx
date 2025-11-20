@@ -91,37 +91,20 @@ export default function ProductsPage() {
     setLoading(true)
 
     try {
-      // Step 1: Create Razorpay order with Magic Checkout parameters
+      // Step 1: Create Razorpay order (Standard Checkout)
       const createOrderResponse = await fetch('/api/razorpay/create-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          amount: totalPrice,
+          amount: totalPrice, // Amount in rupees (will be converted to paise)
           currency: 'INR',
           receipt: `receipt_${Date.now()}_qty_${quantity}`,
-          product: {
-            // Mandatory fields for Magic Checkout
-            sku: `SKU-${product.name.replace(/\s+/g, '-').toUpperCase()}`, // Unique product ID
-            variant_id: `VARIANT-${Date.now()}`, // Unique variant ID
-            price: product.price, // Original price in rupees (will be converted to paise)
-            offerPrice: product.price, // Final price after discount in rupees
-            taxAmount: 0, // Tax amount in rupees (will be converted to paise)
-            quantity: quantity, // Number of units
-            name: product.name, // Product name
-            description: `${product.name} - ${product.weight || 'Premium Coffee'}`, // Product description
-            
-            // Optional fields
-            weight: product.weight || 200, // Weight in grams
-            dimensions: {
-              length: 10, // Length in centimeters (will be converted to string)
-              width: 10, // Width in centimeters (will be converted to string)
-              height: 5, // Height in centimeters (will be converted to string)
-            },
-            image: product.image, // Product image
-            image_url: product.image, // Product image URL
-            product_url: typeof window !== 'undefined' ? `${window.location.origin}/products` : '', // Product page URL
+          notes: {
+            product_name: product.name,
+            quantity: quantity.toString(),
+            product_price: product.price.toString(),
           },
         }),
       })
@@ -276,70 +259,15 @@ export default function ProductsPage() {
         console.warn('Order record creation failed, continuing with payment:', orderError)
       }
 
-      // Step 4: Send data to shipping info API before opening checkout
-      // This checks serviceability and prepares shipping information
-      try {
-        // Get customer email and contact
-        const customerEmail = user?.email || undefined
-        const customerContact = user && profile ? (profile.phone || undefined) : undefined
-        
-        // Format contact with country code if available
-        let formattedContact = customerContact
-        if (formattedContact && !formattedContact.startsWith('+')) {
-          // Add +91 for India if no country code
-          formattedContact = `+91${formattedContact.replace(/[^0-9]/g, '')}`
-        }
-        
-        // Get Razorpay order ID (ensure it has "order_" prefix)
-        const razorpayOrderId = razorpayOrder.id.startsWith('order_') 
-          ? razorpayOrder.id 
-          : `order_${razorpayOrder.id}`
-        
-        // Default address (India) - can be fetched from user profile or Magic Checkout later
-        const defaultAddress = {
-          id: '0',
-          zipcode: '411001', // Default to Pune
-          state_code: 'MH',
-          country: 'IN',
-        }
-        
-        // Send shipping info request
-        const shippingInfoResponse = await fetch('/api/razorpay/shipping-info', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            order_id: receiptValue, // Random integer receipt value
-            razorpay_order_id: razorpayOrderId, // Razorpay order ID with "order_" prefix
-            email: customerEmail || undefined, // Email if available
-            contact: formattedContact || undefined, // Contact with country code if available
-            addresses: [defaultAddress], // Default address array
-          }),
-        })
-        
-        if (shippingInfoResponse.ok) {
-          const shippingInfo = await shippingInfoResponse.json()
-          console.log('Shipping info response:', shippingInfo)
-          // Shipping info is checked - we can use this to validate serviceability
-        } else {
-          console.warn('Shipping info check failed, but proceeding with checkout')
-        }
-      } catch (error) {
-        console.error('Error checking shipping info:', error)
-        // Continue with checkout even if shipping info check fails
-      }
-
-      // Step 5: Open Razorpay Magic Checkout with callback URL
+      // Step 4: Open Razorpay Standard Checkout with callback URL
       // Using callback URL approach: Razorpay will redirect to /api/razorpay/callback on success/failure
       await openRazorpayCheckout({
-        amount: razorpayOrder.amount,
+        amount: razorpayOrder.amount, // Amount in paise
         productName: `${quantity}x ${product.name} (₹${totalPrice})`,
         orderId: razorpayOrder.id,
         customerName: user && profile ? (profile.name || '') : undefined,
         customerEmail: user ? (user.email || undefined) : undefined,
         customerContact: user && profile ? (profile.phone || '') : undefined,
-        customerId: customerId,
         notes: {
           order_id: orderId,
           product_name: product.name,

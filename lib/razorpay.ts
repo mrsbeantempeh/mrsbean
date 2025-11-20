@@ -13,12 +13,12 @@ export const loadRazorpayScript = (): Promise<void> => {
       return
     }
 
-    // Use Magic Checkout script for Magic Checkout integration
+    // Use standard Razorpay checkout script
     const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/magic-checkout.js'
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
     script.async = true
     script.onload = () => resolve()
-    script.onerror = () => reject(new Error('Failed to load Razorpay Magic Checkout'))
+    script.onerror = () => reject(new Error('Failed to load Razorpay Checkout'))
     document.body.appendChild(script)
   })
 }
@@ -30,7 +30,6 @@ interface RazorpayOptions {
   customerName?: string
   customerEmail?: string
   customerContact?: string
-  customerId?: string // Razorpay customer ID for Magic Checkout
   notes?: Record<string, string> // Additional notes (max 15 key-value pairs, 256 chars each)
   // Callback URL approach - Razorpay will redirect to this URL on success/failure
   callbackUrl?: string // Optional: defaults to /api/razorpay/callback
@@ -42,23 +41,19 @@ interface RazorpayOptions {
 export const openRazorpayCheckout = async (options: RazorpayOptions) => {
   await loadRazorpayScript()
 
-  // Build Razorpay options exactly as per Razorpay documentation
+  // Build Razorpay options for standard checkout
   const razorpayOptions: any = {
-    // Mandatory fields for Magic Checkout
+    // Mandatory fields
     key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '', // Enter the Key ID generated from the Dashboard
-    one_click_checkout: true, // Mandatory: true for Magic Checkout
     name: 'Mrs Bean', // your business name
     order_id: options.orderId, // This is the Order ID. Pass the `id` obtained in the response of Step 1; mandatory
-    
-    // Optional Magic Checkout options
-    show_coupons: true, // default true; false if coupon widget should be hidden
+    amount: options.amount, // Amount in paise
     
     // Callback URL approach - Razorpay will redirect to this URL on success/failure
     callback_url: options.callbackUrl || `${typeof window !== 'undefined' ? window.location.origin : ''}/api/razorpay/callback`,
-    redirect: 'true', // Redirect to callback URL after payment (as string, not boolean)
+    redirect: true, // Redirect to callback URL after payment
     
     // Prefill customer details (optional but recommended for better conversion)
-    // We recommend using the prefill parameter to auto-fill customer's contact information especially their phone number
     prefill: {
       name: options.customerName || '', // your customer's name
       email: options.customerEmail || '', // your customer's email
@@ -67,11 +62,11 @@ export const openRazorpayCheckout = async (options: RazorpayOptions) => {
     
     // Notes (optional): Store additional information (max 15 key-value pairs, 256 chars each)
     ...(options.notes && { notes: options.notes }),
-  }
-  
-  // Customer ID for returning customers (Magic Checkout feature) - optional
-  if (options.customerId) {
-    razorpayOptions.customer_id = options.customerId
+    
+    // Theme customization (optional)
+    theme: {
+      color: '#3399cc', // Customize checkout theme
+    },
   }
   
   // Note: When using callback_url + redirect, we don't use handler function

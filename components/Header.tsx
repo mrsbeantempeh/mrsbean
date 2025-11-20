@@ -78,9 +78,9 @@ export default function Header() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <div className="relative w-24 h-8 sm:w-32 sm:h-10 md:w-40 md:h-12 lg:w-44 lg:h-14 flex items-center">
+                <div className="relative w-32 h-12 sm:w-40 sm:h-14 md:w-52 md:h-16 lg:w-56 lg:h-20 flex items-center">
                   <Image
-                      src="/mrsbeanlogo.png"
+                    src="/mrsbeannobg.png"
                     alt="Mrs Bean Logo"
                     fill
                     className="object-contain"
