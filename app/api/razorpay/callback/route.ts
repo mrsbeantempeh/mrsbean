@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
     const errorSource = searchParams.get('error_source') || 'customer'
     const errorStep = searchParams.get('error_step') || 'payment'
     const errorReason = searchParams.get('error_reason') || 'unknown'
+    const failedOrderId = searchParams.get('razorpay_order_id')
     
     console.error('Payment failed:', {
       errorCode,
@@ -52,8 +53,37 @@ export async function GET(request: NextRequest) {
       errorSource,
       errorStep,
       errorReason,
-      razorpay_order_id: searchParams.get('razorpay_order_id'),
+      razorpay_order_id: failedOrderId,
     })
+    
+    // Update order status to cancelled if order exists
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+      
+      if (supabaseUrl && supabaseServiceKey && failedOrderId) {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey)
+        
+        // Try to find order by razorpay_order_id in notes
+        const { data: orders } = await supabase
+          .from('orders')
+          .select('order_id')
+          .eq('status', 'pending')
+          .limit(1)
+        
+        // If we can't find by razorpay_order_id, try to get the most recent pending order
+        // This is a fallback - ideally we'd store razorpay_order_id in the order
+        if (orders && orders.length > 0) {
+          await supabase
+            .from('orders')
+            .update({ status: 'cancelled' })
+            .eq('order_id', orders[0].order_id)
+            .eq('status', 'pending')
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update order status on payment failure:', error)
+    }
     
     // Redirect to products page with error message
     const errorMessage = encodeURIComponent(errorDescription)
@@ -181,25 +211,53 @@ export async function GET(request: NextRequest) {
           const transactionId = `TXN-${razorpay_payment_id}`
           const amount = orderDetails?.amount ? orderDetails.amount / 100 : 0 // Convert from paise to rupees
           
+          // Extract customer details from order notes
+          const customerNameFromNotes = orderDetails?.notes?.customer_name || customerName
+          const customerPhoneFromNotes = orderDetails?.notes?.customer_phone || customerPhone
+          const customerEmailFromNotes = orderDetails?.notes?.customer_email || customerEmail
+          const addressFromNotes = orderDetails?.notes?.address || deliveryAddress
+          
           // Check if order exists to determine if user is logged in
           const { data: existingOrder } = await supabase
             .from('orders')
-            .select('user_id')
+            .select('user_id, guest_name, guest_email, guest_phone')
             .eq('order_id', orderId)
             .single()
           
           const userId = existingOrder?.user_id || null
           
-          // Update order with shipping address if available
-          if (deliveryAddress && deliveryAddress !== 'Address will be updated after payment confirmation') {
-            try {
-              await supabase
-                .from('orders')
-                .update({ address: deliveryAddress })
-                .eq('order_id', orderId)
-            } catch (error) {
-              console.error('Failed to update order address:', error)
+          // Update order with payment success status and customer details
+          const updateData: any = {
+            status: 'confirmed', // Update status to confirmed on successful payment
+          }
+          
+          // Update address (prefer from notes, then from payment details)
+          if (addressFromNotes && addressFromNotes !== 'Address will be updated after payment confirmation') {
+            updateData.address = addressFromNotes
+          } else if (deliveryAddress && deliveryAddress !== 'Address will be updated after payment confirmation') {
+            updateData.address = deliveryAddress
+          }
+          
+          // Update guest customer details if this is a guest order
+          if (!userId && existingOrder) {
+            if (customerNameFromNotes && !existingOrder.guest_name) {
+              updateData.guest_name = customerNameFromNotes
             }
+            if (customerEmailFromNotes && !existingOrder.guest_email) {
+              updateData.guest_email = customerEmailFromNotes
+            }
+            if (customerPhoneFromNotes && !existingOrder.guest_phone) {
+              updateData.guest_phone = customerPhoneFromNotes
+            }
+          }
+          
+          try {
+            await supabase
+              .from('orders')
+              .update(updateData)
+              .eq('order_id', orderId)
+          } catch (error) {
+            console.error('Failed to update order:', error)
           }
           
           // Create transaction record

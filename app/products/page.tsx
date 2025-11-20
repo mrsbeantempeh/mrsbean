@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
 import { openRazorpayCheckout } from '@/lib/razorpay'
+import CheckoutForm from '@/components/CheckoutForm'
 
 // Note: Some console errors are expected and cannot be fixed:
 // - Razorpay iframe cross-origin errors (browser security restriction)
@@ -78,6 +79,7 @@ export default function ProductsPage() {
   const { user, profile, addOrder, addTransaction, addGuestOrder, addGuestTransaction } = useAuth()
   const [loading, setLoading] = useState(false)
   const [quantity, setQuantity] = useState(1)
+  const [showCheckoutForm, setShowCheckoutForm] = useState(false)
 
   const totalPrice = product.price * quantity
 
@@ -87,11 +89,59 @@ export default function ProductsPage() {
     }
   }
 
-  const handleBuyNow = async () => {
+  const handleBuyNow = () => {
+    // Show checkout form first
+    setShowCheckoutForm(true)
+  }
+
+  const handleCheckoutSubmit = async (formData: { name: string; phone: string; email: string; address: string }) => {
+    setShowCheckoutForm(false)
     setLoading(true)
 
     try {
-      // Step 1: Create Razorpay order (Standard Checkout)
+      // Step 1: Create order record in database (pending status) with customer details
+      const orderId = `ORDER-${Date.now()}`
+      
+      try {
+        if (user) {
+          // Logged-in user order
+          await addOrder({
+            order_id: orderId,
+            product_name: product.name,
+            quantity,
+            price: product.price,
+            total: totalPrice,
+            status: 'pending',
+            payment_method: 'Razorpay',
+            address: formData.address,
+          })
+        } else {
+          // Guest order
+          const guestOrderResult = await addGuestOrder({
+            order_id: orderId,
+            product_name: product.name,
+            quantity,
+            price: product.price,
+            total: totalPrice,
+            status: 'pending',
+            payment_method: 'Razorpay',
+            address: formData.address,
+            guest_name: formData.name,
+            guest_email: formData.email || undefined,
+            guest_phone: formData.phone,
+            user_id: null,
+          })
+          
+          if (!guestOrderResult.success) {
+            console.warn('Guest order creation failed, continuing with payment:', guestOrderResult.error)
+          }
+        }
+      } catch (orderError: any) {
+        console.warn('Order record creation failed, continuing with payment:', orderError)
+        // Continue with payment even if order creation fails
+      }
+
+      // Step 2: Create Razorpay order (Standard Checkout)
       const createOrderResponse = await fetch('/api/razorpay/create-order', {
         method: 'POST',
         headers: {
@@ -102,9 +152,15 @@ export default function ProductsPage() {
           currency: 'INR',
           receipt: `receipt_${Date.now()}_qty_${quantity}`,
           notes: {
+            order_id: orderId,
             product_name: product.name,
             quantity: quantity.toString(),
             product_price: product.price.toString(),
+            total_amount: totalPrice.toString(),
+            customer_name: formData.name,
+            customer_phone: formData.phone,
+            customer_email: formData.email || '',
+            address: formData.address,
           },
         }),
       })
@@ -190,84 +246,20 @@ export default function ProductsPage() {
       // Success - use parsed response data
       const razorpayOrder = responseData
 
-      // Step 2: Create or get Razorpay customer for Magic Checkout (if user is logged in)
-      let customerId: string | undefined
-      
-      if (user && profile) {
-        try {
-          const customerResponse = await fetch('/api/razorpay/create-customer', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              name: profile.name || '',
-              email: user.email || '',
-              contact: profile.phone || '',
-            }),
-          })
-
-          if (customerResponse.ok) {
-            const customer = await customerResponse.json()
-            customerId = customer.id
-          }
-        } catch (error) {
-          console.error('Failed to create Razorpay customer:', error)
-        }
-      }
-
-      // Step 3: Create order record in database (pending status)
-      const orderId = `ORDER-${Date.now()}`
-      const receiptValue = Date.now() // Random integer receipt value
-
-      // Try to create order record, but don't block payment flow if it fails
-      try {
-        if (user) {
-          await addOrder({
-            order_id: orderId,
-            product_name: product.name,
-            quantity,
-            price: product.price,
-            total: totalPrice,
-            status: 'pending',
-            payment_method: 'Razorpay',
-            address: 'Address will be updated after payment',
-          })
-        } else {
-          const guestOrderResult = await addGuestOrder({
-            order_id: orderId,
-            product_name: product.name,
-            quantity,
-            price: product.price,
-            total: totalPrice,
-            status: 'pending',
-            payment_method: 'Razorpay',
-            address: 'Address will be updated after payment',
-            guest_name: undefined,
-            guest_email: undefined,
-            guest_phone: undefined,
-            user_id: null,
-          })
-          
-          // Log if guest order creation failed, but continue with payment
-          if (!guestOrderResult.success) {
-            console.warn('Guest order creation failed, continuing with payment:', guestOrderResult.error)
-          }
-        }
-      } catch (orderError: any) {
-        // Don't block payment flow if order creation fails
-        console.warn('Order record creation failed, continuing with payment:', orderError)
-      }
-
-      // Step 4: Open Razorpay Standard Checkout with callback URL
+      // Step 3: Open Razorpay Standard Checkout with callback URL
       // Using callback URL approach: Razorpay will redirect to /api/razorpay/callback on success/failure
+      // Format phone number with country code for Razorpay (add +91 for India)
+      const formattedPhone = formData.phone.startsWith('+') 
+        ? formData.phone 
+        : `+91${formData.phone.replace(/[^0-9]/g, '')}`
+      
       await openRazorpayCheckout({
         amount: razorpayOrder.amount, // Amount in paise
         productName: `${quantity}x ${product.name} (₹${totalPrice})`,
         orderId: razorpayOrder.id,
-        customerName: user && profile ? (profile.name || '') : undefined,
-        customerEmail: user ? (user.email || undefined) : undefined,
-        customerContact: user && profile ? (profile.phone || '') : undefined,
+        customerName: formData.name,
+        customerEmail: formData.email || undefined,
+        customerContact: formattedPhone,
         notes: {
           order_id: orderId,
           product_name: product.name,
@@ -275,6 +267,10 @@ export default function ProductsPage() {
           product_price: product.price.toString(),
           quantity: quantity.toString(),
           total_amount: totalPrice.toString(),
+          customer_name: formData.name,
+          customer_phone: formData.phone,
+          customer_email: formData.email || '',
+          address: formData.address,
         },
         // Callback URL approach - Razorpay will redirect to /api/razorpay/callback on success/failure
         // The callback route handles payment verification, transaction creation, and redirects to thank-you page
@@ -702,7 +698,18 @@ export default function ProductsPage() {
         </motion.section>
       </div>
 
-      {/* Magic Checkout - Opens directly when Buy Now is clicked */}
+      {/* Checkout Form Modal */}
+      <CheckoutForm
+        isOpen={showCheckoutForm}
+        onClose={() => setShowCheckoutForm(false)}
+        onSubmit={handleCheckoutSubmit}
+        productName={product.name}
+        quantity={quantity}
+        totalPrice={totalPrice}
+        defaultName={user && profile ? profile.name || '' : ''}
+        defaultPhone={user && profile ? profile.phone || '' : ''}
+        defaultEmail={user ? user.email || '' : ''}
+      />
     </div>
   )
 }
