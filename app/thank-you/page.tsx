@@ -1,6 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { CheckCircle, Truck, Home, Package, User, Phone, Mail, MapPin, Calendar, CreditCard } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -105,12 +104,7 @@ function ThankYouContent() {
       <div className="container mx-auto px-4 sm:px-6">
         <div className="max-w-2xl mx-auto">
           {/* Success Icon */}
-          <motion.div
-            className="text-center mb-8"
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-          >
+          <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-20 h-20 sm:w-24 sm:h-24 bg-green-100 rounded-full mb-6">
               <CheckCircle className="w-12 h-12 sm:w-14 sm:h-14 text-green-600" />
             </div>
@@ -120,15 +114,10 @@ function ThankYouContent() {
             <p className="text-lg sm:text-xl text-navy-700 mb-2">
               Your order has been placed successfully
             </p>
-          </motion.div>
+          </div>
 
           {/* Order Details Card */}
-          <motion.div
-            className="bg-white rounded-2xl shadow-xl border border-navy-100 p-6 sm:p-8 mb-8"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-          >
+          <div className="bg-white rounded-2xl shadow-xl border border-navy-100 p-6 sm:p-8 mb-8">
             <h2 className="text-xl sm:text-2xl font-bold text-navy-900 mb-6 pb-4 border-b border-navy-200">
               Order Details
             </h2>
@@ -214,15 +203,10 @@ function ThankYouContent() {
                 </div>
               )}
             </div>
-          </motion.div>
+          </div>
 
           {/* Delivery Information */}
-          <motion.div
-            className="bg-gradient-to-r from-navy-50 to-beige-50 rounded-2xl border border-navy-200 p-6 sm:p-8 mb-8"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.5 }}
-          >
+          <div className="bg-gradient-to-r from-navy-50 to-beige-50 rounded-2xl border border-navy-200 p-6 sm:p-8 mb-8">
             <div className="flex items-start gap-4">
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 sm:w-14 sm:h-14 bg-navy-700 rounded-full flex items-center justify-center">
@@ -271,30 +255,20 @@ function ThankYouContent() {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </div>
 
           {/* Thank You Message */}
-          <motion.div
-            className="text-center mb-8"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6, duration: 0.5 }}
-          >
+          <div className="text-center mb-8">
             <p className="text-base sm:text-lg text-navy-700 mb-2">
               We truly appreciate your order and look forward to serving you fresh, handcrafted tempeh!
             </p>
             <p className="text-sm sm:text-base text-navy-600">
               If you have any questions, feel free to reach out to us via WhatsApp or email.
             </p>
-          </motion.div>
+          </div>
 
           {/* Action Buttons */}
-          <motion.div
-            className="flex flex-col sm:flex-row gap-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8, duration: 0.5 }}
-          >
+          <div className="flex flex-col sm:flex-row gap-4">
             <Link
               href="/"
               className="flex-1 bg-gradient-to-r from-navy-700 to-navy-900 hover:from-navy-600 hover:to-navy-800 text-white px-6 py-3.5 sm:py-4 rounded-full font-bold text-base sm:text-lg transition-all duration-300 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:scale-105"
@@ -309,7 +283,7 @@ function ThankYouContent() {
               <Package className="w-5 h-5" />
               View Orders
             </Link>
-          </motion.div>
+          </div>
         </div>
       </div>
     </div>
