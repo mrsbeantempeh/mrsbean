@@ -220,50 +220,99 @@ export async function GET(request: NextRequest) {
           // Check if order exists to determine if user is logged in
           const { data: existingOrder } = await supabase
             .from('orders')
-            .select('user_id, guest_name, guest_email, guest_phone')
+            .select('user_id, guest_name, guest_email, guest_phone, product_name, quantity, price, total')
             .eq('order_id', orderId)
             .single()
           
           const userId = existingOrder?.user_id || null
           
-          // Update order with payment success status and customer details
-          const updateData: any = {
+          // Prepare order update/create data
+          const orderData: any = {
             status: 'confirmed', // Update status to confirmed on successful payment
           }
           
           // Update address (prefer from notes, then from payment details)
           if (addressFromNotes && addressFromNotes !== 'Address will be updated after payment confirmation') {
-            updateData.address = addressFromNotes
+            orderData.address = addressFromNotes
           } else if (deliveryAddress && deliveryAddress !== 'Address will be updated after payment confirmation') {
-            updateData.address = deliveryAddress
+            orderData.address = deliveryAddress
           }
           
-          // Update guest customer details if this is a guest order
-          if (!userId && existingOrder) {
-            if (customerNameFromNotes && !existingOrder.guest_name) {
-              updateData.guest_name = customerNameFromNotes
+          // Always update guest customer details if this is a guest order (ensure they're set)
+          if (!userId) {
+            if (customerNameFromNotes) {
+              orderData.guest_name = customerNameFromNotes
             }
-            if (customerEmailFromNotes && !existingOrder.guest_email) {
-              updateData.guest_email = customerEmailFromNotes
+            if (customerEmailFromNotes) {
+              orderData.guest_email = customerEmailFromNotes
             }
-            if (customerPhoneFromNotes && !existingOrder.guest_phone) {
-              updateData.guest_phone = customerPhoneFromNotes
+            if (customerPhoneFromNotes) {
+              orderData.guest_phone = customerPhoneFromNotes
             }
           }
           
-          try {
-            await supabase
-              .from('orders')
-              .update(updateData)
-              .eq('order_id', orderId)
-          } catch (error) {
-            console.error('Failed to update order:', error)
+          // Update existing order
+          if (existingOrder) {
+            try {
+              const { error: updateError } = await supabase
+                .from('orders')
+                .update(orderData)
+                .eq('order_id', orderId)
+              
+              if (updateError) {
+                console.error('Failed to update order:', updateError)
+              } else {
+                console.log('✅ Order updated successfully:', orderId)
+              }
+            } catch (error) {
+              console.error('Failed to update order:', error)
+            }
+          } else {
+            // Order doesn't exist - create it (fallback scenario)
+            // Extract product details from order notes
+            const productName = orderDetails?.notes?.product_name || 'Classic Tempeh'
+            const quantity = orderDetails?.notes?.quantity ? parseInt(orderDetails.notes.quantity) : 1
+            const price = orderDetails?.notes?.product_price ? parseFloat(orderDetails.notes.product_price) : 125
+            const total = amount || (price * quantity)
+            
+            try {
+              const newOrderData: any = {
+                order_id: orderId,
+                product_name: productName,
+                quantity: quantity,
+                price: price,
+                total: total,
+                status: 'confirmed',
+                payment_method: 'Razorpay',
+                address: orderData.address || addressFromNotes || deliveryAddress || '',
+                user_id: null, // Guest order
+                guest_name: customerNameFromNotes || customerName || null,
+                guest_email: customerEmailFromNotes || customerEmail || null,
+                guest_phone: customerPhoneFromNotes || customerPhone || null,
+              }
+              
+              const { error: insertError } = await supabase
+                .from('orders')
+                .insert(newOrderData)
+              
+              if (insertError) {
+                console.error('Failed to create order:', insertError)
+              } else {
+                console.log('✅ Order created successfully (fallback):', orderId)
+              }
+            } catch (error) {
+              console.error('Failed to create order:', error)
+            }
           }
           
           // Create transaction record
+          // Use customer details from notes (most reliable)
+          const finalCustomerEmail = customerEmailFromNotes || customerEmail || null
+          const finalCustomerPhone = customerPhoneFromNotes || customerPhone || null
+          
           if (userId) {
             // Logged-in user transaction
-            await supabase.from('transactions').insert({
+            const { error: transError } = await supabase.from('transactions').insert({
               transaction_id: transactionId,
               order_id: orderId,
               user_id: userId,
@@ -273,9 +322,15 @@ export async function GET(request: NextRequest) {
               razorpay_payment_id: razorpay_payment_id,
               razorpay_order_id: razorpay_order_id,
             })
+            
+            if (transError) {
+              console.error('Failed to create transaction:', transError)
+            } else {
+              console.log('✅ Transaction created successfully:', transactionId)
+            }
           } else {
             // Guest transaction
-            await supabase.from('transactions').insert({
+            const { error: transError } = await supabase.from('transactions').insert({
               transaction_id: transactionId,
               order_id: orderId,
               user_id: null,
@@ -284,9 +339,15 @@ export async function GET(request: NextRequest) {
               payment_method: 'Razorpay',
               razorpay_payment_id: razorpay_payment_id,
               razorpay_order_id: razorpay_order_id,
-              guest_email: customerEmail,
-              guest_phone: customerPhone,
+              guest_email: finalCustomerEmail,
+              guest_phone: finalCustomerPhone,
             })
+            
+            if (transError) {
+              console.error('Failed to create transaction:', transError)
+            } else {
+              console.log('✅ Guest transaction created successfully:', transactionId)
+            }
           }
         }
       } catch (error) {
