@@ -89,14 +89,16 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(new URL('/products?error=Invalid payment signature', request.url))
       }
       
-      // Fetch order details from Razorpay
+      // Fetch order details and payment details from Razorpay
       let orderDetails: any = null
+      let paymentDetails: any = null
       let customerName = 'Customer'
       let customerEmail: string | null = null
       let customerPhone: string | null = null
-      let deliveryAddress = 'Address from Razorpay Magic Checkout'
+      let deliveryAddress = 'Address will be updated after payment confirmation'
       
       try {
+        // Fetch order details
         const orderDetailsResponse = await fetch(
           `${request.nextUrl.origin}/api/razorpay/get-order?order_id=${razorpay_order_id}`
         )
@@ -105,10 +107,65 @@ export async function GET(request: NextRequest) {
           if (orderDetails.notes?.name) customerName = orderDetails.notes.name
           if (orderDetails.notes?.email) customerEmail = orderDetails.notes.email
           if (orderDetails.notes?.contact) customerPhone = orderDetails.notes.contact
-          if (orderDetails.notes?.address) deliveryAddress = orderDetails.notes.address
+        }
+
+        // Fetch payment details - this contains the shipping address collected during Magic Checkout
+        const paymentDetailsResponse = await fetch(
+          `${request.nextUrl.origin}/api/razorpay/get-payment?payment_id=${razorpay_payment_id}`
+        )
+        if (paymentDetailsResponse.ok) {
+          paymentDetails = await paymentDetailsResponse.json()
+          
+          console.log('📦 Payment details fetched:', {
+            payment_id: razorpay_payment_id,
+            has_shipping_address: !!paymentDetails.shipping_address,
+            has_billing_address: !!paymentDetails.billing_address,
+            has_notes: !!paymentDetails.notes,
+            shipping_address: paymentDetails.shipping_address,
+            notes: paymentDetails.notes,
+          })
+          
+          // Extract customer details from payment (more reliable than order notes)
+          if (paymentDetails.email) customerEmail = paymentDetails.email
+          if (paymentDetails.contact) customerPhone = paymentDetails.contact
+          
+          // Extract shipping address from payment details
+          // Razorpay Magic Checkout stores address in payment.shipping_address
+          if (paymentDetails.shipping_address) {
+            const addr = paymentDetails.shipping_address
+            // Format address from Razorpay shipping_address object
+            const addressParts = []
+            if (addr.line1) addressParts.push(addr.line1)
+            if (addr.line2) addressParts.push(addr.line2)
+            if (addr.city) addressParts.push(addr.city)
+            if (addr.state) addressParts.push(addr.state)
+            if (addr.zipcode) addressParts.push(addr.zipcode)
+            if (addr.country) addressParts.push(addr.country)
+            
+            if (addressParts.length > 0) {
+              deliveryAddress = addressParts.join(', ')
+              console.log('✅ Shipping address extracted:', deliveryAddress)
+            }
+          } else if (paymentDetails.notes?.shipping_address) {
+            // Fallback: check notes for address
+            deliveryAddress = paymentDetails.notes.shipping_address
+            console.log('✅ Shipping address from payment notes:', deliveryAddress)
+          } else if (paymentDetails.notes?.address) {
+            // Fallback: check payment notes for address
+            deliveryAddress = paymentDetails.notes.address
+            console.log('✅ Address from payment notes:', deliveryAddress)
+          } else if (orderDetails.notes?.address) {
+            // Fallback: check order notes
+            deliveryAddress = orderDetails.notes.address
+            console.log('✅ Address from order notes:', deliveryAddress)
+          } else {
+            console.warn('⚠️ No shipping address found in payment details')
+          }
+        } else {
+          console.error('Failed to fetch payment details:', await paymentDetailsResponse.text())
         }
       } catch (error) {
-        console.error('Failed to fetch order details:', error)
+        console.error('Failed to fetch order/payment details:', error)
       }
       
       // Create transaction record in database
@@ -132,6 +189,18 @@ export async function GET(request: NextRequest) {
             .single()
           
           const userId = existingOrder?.user_id || null
+          
+          // Update order with shipping address if available
+          if (deliveryAddress && deliveryAddress !== 'Address will be updated after payment confirmation') {
+            try {
+              await supabase
+                .from('orders')
+                .update({ address: deliveryAddress })
+                .eq('order_id', orderId)
+            } catch (error) {
+              console.error('Failed to update order address:', error)
+            }
+          }
           
           // Create transaction record
           if (userId) {
