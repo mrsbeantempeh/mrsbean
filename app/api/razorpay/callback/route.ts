@@ -198,6 +198,12 @@ export async function GET(request: NextRequest) {
         console.error('Failed to fetch order/payment details:', error)
       }
       
+      // Extract customer details from order notes (do this before try block so it's accessible later)
+      const customerNameFromNotes = orderDetails?.notes?.customer_name || customerName
+      const customerPhoneFromNotes = orderDetails?.notes?.customer_phone || customerPhone
+      const customerEmailFromNotes = orderDetails?.notes?.customer_email || customerEmail
+      const addressFromNotes = orderDetails?.notes?.address || deliveryAddress
+      
       // Create transaction record in database
       try {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -210,12 +216,6 @@ export async function GET(request: NextRequest) {
           const orderId = orderDetails?.notes?.order_id || `ORDER-${razorpay_order_id}`
           const transactionId = `TXN-${razorpay_payment_id}`
           const amount = orderDetails?.amount ? orderDetails.amount / 100 : 0 // Convert from paise to rupees
-          
-          // Extract customer details from order notes
-          const customerNameFromNotes = orderDetails?.notes?.customer_name || customerName
-          const customerPhoneFromNotes = orderDetails?.notes?.customer_phone || customerPhone
-          const customerEmailFromNotes = orderDetails?.notes?.customer_email || customerEmail
-          const addressFromNotes = orderDetails?.notes?.address || deliveryAddress
           
           // Check if order exists to determine if user is logged in
           const { data: existingOrder } = await supabase
