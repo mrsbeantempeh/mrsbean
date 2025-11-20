@@ -326,8 +326,10 @@ export async function GET(request: NextRequest) {
             const price = orderDetails?.notes?.product_price ? parseFloat(orderDetails.notes.product_price) : 125
             const total = amount || (price * quantity)
             
+            let newOrderData: any = null
+            
             try {
-              const newOrderData: any = {
+              newOrderData = {
                 order_id: orderIdForDb,
                 product_name: productName,
                 quantity: quantity,
