@@ -9,6 +9,7 @@ interface CheckoutFormData {
   phone: string
   email: string
   address: string
+  paymentMethod: 'cod' | 'pay_now'
 }
 
 interface CheckoutFormProps {
@@ -39,6 +40,7 @@ export default function CheckoutForm({
     phone: defaultPhone,
     email: defaultEmail,
     address: '',
+    paymentMethod: 'pay_now',
   })
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormData, string>>>({})
 
@@ -205,6 +207,65 @@ export default function CheckoutForm({
               {errors.address && <p className="mt-1 text-sm text-red-500">{errors.address}</p>}
             </div>
 
+            {/* Payment Method */}
+            <div>
+              <label className="block text-sm font-medium text-navy-900 mb-3">
+                Payment Method <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setFormData((prev) => ({ ...prev, paymentMethod: 'cod' }))}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    formData.paymentMethod === 'cod'
+                      ? 'border-green-500 bg-green-50 shadow-md'
+                      : 'border-navy-200 bg-white hover:border-navy-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      formData.paymentMethod === 'cod' ? 'border-green-500' : 'border-navy-300'
+                    }`}>
+                      {formData.paymentMethod === 'cod' && (
+                        <div className="w-2 h-2 rounded-full bg-green-500" />
+                      )}
+                    </div>
+                    <span className={`font-semibold ${
+                      formData.paymentMethod === 'cod' ? 'text-green-700' : 'text-navy-900'
+                    }`}>
+                      Cash on Delivery
+                    </span>
+                  </div>
+                  <p className="text-xs text-navy-600 text-left">Pay when you receive your order</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData((prev) => ({ ...prev, paymentMethod: 'pay_now' }))}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    formData.paymentMethod === 'pay_now'
+                      ? 'border-navy-500 bg-navy-50 shadow-md'
+                      : 'border-navy-200 bg-white hover:border-navy-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      formData.paymentMethod === 'pay_now' ? 'border-navy-500' : 'border-navy-300'
+                    }`}>
+                      {formData.paymentMethod === 'pay_now' && (
+                        <div className="w-2 h-2 rounded-full bg-navy-500" />
+                      )}
+                    </div>
+                    <span className={`font-semibold ${
+                      formData.paymentMethod === 'pay_now' ? 'text-navy-700' : 'text-navy-900'
+                    }`}>
+                      Pay Now
+                    </span>
+                  </div>
+                  <p className="text-xs text-navy-600 text-left">Pay securely online</p>
+                </button>
+              </div>
+            </div>
+
             {/* Submit Button */}
             <div className="flex gap-4 pt-4">
               <button
@@ -214,12 +275,35 @@ export default function CheckoutForm({
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                className="flex-1 px-6 py-3 rounded-lg bg-navy-900 text-white font-medium hover:bg-navy-800 transition-colors"
-              >
-                Proceed to Payment
-              </button>
+              {formData.paymentMethod === 'cod' ? (
+                <motion.button
+                  type="submit"
+                  className="flex-1 px-6 py-3 rounded-lg bg-gradient-to-r from-green-600 to-green-700 text-white font-medium shadow-lg hover:shadow-xl transition-all"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  animate={{
+                    boxShadow: [
+                      '0 10px 15px -3px rgba(34, 197, 94, 0.3), 0 4px 6px -2px rgba(34, 197, 94, 0.2)',
+                      '0 20px 25px -5px rgba(34, 197, 94, 0.4), 0 10px 10px -5px rgba(34, 197, 94, 0.2)',
+                      '0 10px 15px -3px rgba(34, 197, 94, 0.3), 0 4px 6px -2px rgba(34, 197, 94, 0.2)',
+                    ],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                  }}
+                >
+                  Place Order
+                </motion.button>
+              ) : (
+                <button
+                  type="submit"
+                  className="flex-1 px-6 py-3 rounded-lg bg-navy-900 text-white font-medium hover:bg-navy-800 transition-colors"
+                >
+                  Proceed to Payment
+                </button>
+              )}
             </div>
           </form>
         </motion.div>

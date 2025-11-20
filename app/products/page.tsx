@@ -94,13 +94,15 @@ export default function ProductsPage() {
     setShowCheckoutForm(true)
   }
 
-  const handleCheckoutSubmit = async (formData: { name: string; phone: string; email: string; address: string }) => {
+  const handleCheckoutSubmit = async (formData: { name: string; phone: string; email: string; address: string; paymentMethod: 'cod' | 'pay_now' }) => {
     setShowCheckoutForm(false)
     setLoading(true)
 
     try {
-      // Step 1: Create order record in database (pending status) with customer details
+      // Step 1: Create order record in database with customer details
       const orderId = `ORDER-${Date.now()}`
+      const paymentMethod = formData.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Razorpay'
+      const orderStatus = formData.paymentMethod === 'cod' ? 'confirmed' : 'pending'
       
       try {
         if (user) {
@@ -111,8 +113,8 @@ export default function ProductsPage() {
             quantity,
             price: product.price,
             total: totalPrice,
-            status: 'pending',
-            payment_method: 'Razorpay',
+            status: orderStatus,
+            payment_method: paymentMethod,
             address: formData.address,
           })
         } else {
@@ -123,8 +125,8 @@ export default function ProductsPage() {
             quantity,
             price: product.price,
             total: totalPrice,
-            status: 'pending',
-            payment_method: 'Razorpay',
+            status: orderStatus,
+            payment_method: paymentMethod,
             address: formData.address,
             guest_name: formData.name,
             guest_email: formData.email || undefined,
@@ -133,12 +135,38 @@ export default function ProductsPage() {
           })
           
           if (!guestOrderResult.success) {
-            console.warn('Guest order creation failed, continuing with payment:', guestOrderResult.error)
+            console.warn('Guest order creation failed:', guestOrderResult.error)
           }
         }
       } catch (orderError: any) {
-        console.warn('Order record creation failed, continuing with payment:', orderError)
-        // Continue with payment even if order creation fails
+        console.error('Order record creation failed:', orderError)
+        alert('Failed to create order. Please try again.')
+        setLoading(false)
+        return
+      }
+
+      // If Cash on Delivery, skip payment and redirect to thank-you page
+      if (formData.paymentMethod === 'cod') {
+        const orderInfo = {
+          orderId,
+          paymentId: null,
+          customerName: formData.name,
+          customerPhone: formData.phone,
+          customerEmail: formData.email || null,
+          deliveryAddress: formData.address,
+          productName: product.name,
+          productWeight: product.weight,
+          productPrice: product.price,
+          quantity,
+          totalAmount: totalPrice,
+          paymentMethod: 'Cash on Delivery',
+          orderDate: new Date().toISOString(),
+          estimatedDeliveryDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        }
+        
+        const orderInfoEncoded = encodeURIComponent(JSON.stringify(orderInfo))
+        router.push(`/thank-you?order=${orderId}&orderInfo=${orderInfoEncoded}`)
+        return
       }
 
       // Step 2: Create Razorpay order (Standard Checkout)
